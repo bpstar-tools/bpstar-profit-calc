@@ -54,6 +54,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 /* TAG BADGES */
 .tag{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap}
 .tag-完成品{background:var(--accent-l);color:var(--accent)}
+.tag-未入力{background:#fee2e2;color:#b91c1c}
 .tag-中間素材{background:var(--warn-l);color:var(--warn)}
 .tag-素材{background:var(--bg2);color:var(--t2)}
 .tag-NPC購入可{background:var(--npc-l);color:var(--npc)}
@@ -188,6 +189,37 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 .mastery-btn.mastery-off{background:var(--bg2);color:var(--t3);border:1.5px solid var(--border)}
 .rank-name-link{cursor:pointer;color:inherit;text-decoration:underline dotted var(--t3)}
 .rank-name-link:hover{color:var(--accent)}
+
+
+/* ── VISION MODAL ── */
+.vision-modal{position:fixed;inset:0;z-index:900;display:flex;align-items:center;justify-content:center;background:rgba(10,12,30,.72);backdrop-filter:blur(4px)}
+.vision-modal.hidden{display:none}
+.vision-box{background:var(--white);border-radius:14px;box-shadow:var(--sh-lg);width:min(96vw,720px);max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.vision-head{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.vision-head h3{font-size:14px;font-weight:700}
+.vision-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--t3);padding:2px 6px;border-radius:5px}
+.vision-close:hover{background:var(--bg);color:var(--t1)}
+.vision-body{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.vision-drop{border:2px dashed var(--border2);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg)}
+.vision-drop:hover,.vision-drop.dragover{border-color:var(--accent);background:var(--accent-l)}
+.vision-drop p{font-size:13px;color:var(--t3);margin-top:6px}
+.vision-preview{max-width:100%;border-radius:8px;border:1px solid var(--border);display:block}
+.vision-thinking{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--t2);padding:12px;background:var(--bg);border-radius:8px}
+.vision-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:vdot 1.2s ease-in-out infinite}
+.vision-dot:nth-child(2){animation-delay:.2s}
+.vision-dot:nth-child(3){animation-delay:.4s}
+@keyframes vdot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+.vision-result{background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.vision-result-head{padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--t2);display:flex;align-items:center;justify-content:space-between}
+.vision-row{display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--border);font-size:12px}
+.vision-row:last-child{border-bottom:none}
+.vision-row.matched{background:#f0fdf8}
+.vision-row.unmatched{opacity:.5}
+.vision-item-name{flex:1;font-weight:600}
+.vision-price{font-family:var(--mono);color:var(--accent);font-weight:700;min-width:80px;text-align:right}
+.vision-tag-ok{font-size:10px;background:var(--profit-l);color:var(--profit);border-radius:4px;padding:1px 6px;font-weight:600;flex-shrink:0}
+.vision-tag-ng{font-size:10px;background:var(--bg2);color:var(--t3);border-radius:4px;padding:1px 6px;flex-shrink:0}
+.vision-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -209,6 +241,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
       <button class="nav-btn" onclick="showPage('rank',this)">ランキング</button>
     </nav>
     <div class="header-right" style="display:flex;align-items:center;gap:8px">
+      <button class="btn btn-ghost" style="font-size:12px;padding:5px 12px" onclick="openVision()">AI 価格読み取り</button>
       <button id="skill-btn" onclick="toggleSkill()" class="mastery-btn mastery-on" title="マスタリーボーナス計算のON/OFF">マスタリー ON</button>
       <span class="badge" id="data-badge">読込中</span>
     </div>
@@ -256,9 +289,247 @@ body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100
 
   </div>
 </div>
+
+
+<!-- Vision AI 価格読み取りモーダル -->
+<div class="vision-modal hidden" id="vision-modal">
+  <div class="vision-box">
+    <div class="vision-head">
+      <h3>AI 取引所価格 読み取り</h3>
+      <button class="vision-close" onclick="closeVision()">×</button>
+    </div>
+    <div class="vision-body">
+
+      <!-- 画像ドロップ / 選択 -->
+      <div id="vision-upload-area">
+        <div class="vision-drop" id="vision-drop"
+          onclick="document.getElementById('vision-file-input').click()"
+          ondragover="event.preventDefault();this.classList.add('dragover')"
+          ondragleave="this.classList.remove('dragover')"
+          ondrop="handleVisionDrop(event)">
+          <div style="font-size:28px">🖼️</div>
+          <div style="font-size:13px;font-weight:700;color:var(--t1);margin-top:8px">取引所のスクリーンショットをドロップ</div>
+          <p>またはクリックしてファイルを選択 / Ctrl+V で貼り付け</p>
+        </div>
+        <input type="file" id="vision-file-input" accept="image/*" style="display:none" onchange="loadVisionFile(this)">
+      </div>
+
+      <!-- プレビュー -->
+      <div id="vision-preview-wrap" style="display:none">
+        <img id="vision-preview" class="vision-preview">
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="btn btn-adm" onclick="runVision()">この画像を解析</button>
+          <button class="btn btn-ghost" onclick="resetVision()">画像を変更</button>
+        </div>
+      </div>
+
+      <!-- 処理中 -->
+      <div id="vision-thinking" class="vision-thinking" style="display:none">
+        <div class="vision-dot"></div><div class="vision-dot"></div><div class="vision-dot"></div>
+        <span id="vision-thinking-text">AIが画像を解析中...</span>
+      </div>
+
+      <!-- 結果 -->
+      <div id="vision-result-wrap" style="display:none">
+        <div class="vision-result">
+          <div class="vision-result-head">
+            <span id="vision-result-summary"></span>
+            <label style="font-size:11px;display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400">
+              <input type="checkbox" id="vision-all-check" onchange="toggleAllVisionChecks(this.checked)"> すべて選択
+            </label>
+          </div>
+          <div id="vision-rows"></div>
+        </div>
+        <div class="vision-actions" style="margin-top:10px">
+          <button class="btn btn-adm" id="vision-apply-btn" onclick="applyVisionResults()">チェックした価格を適用</button>
+          <button class="btn btn-ghost" onclick="resetVision()">撮り直す</button>
+          <span id="vision-apply-note" style="font-size:11px;color:var(--t3)"></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
 <div class="notif" id="notif"></div>
 
 <script>
+
+
+/* ===================== VISION AI ===================== */
+let visionImageB64 = null;
+let visionResults  = [];
+
+function openVision(){
+  document.getElementById('vision-modal').classList.remove('hidden');
+  window.addEventListener('paste', handleVisionPaste);
+}
+function closeVision(){
+  document.getElementById('vision-modal').classList.add('hidden');
+  window.removeEventListener('paste', handleVisionPaste);
+}
+function resetVision(){
+  visionImageB64=null; visionResults=[];
+  document.getElementById('vision-upload-area').style.display='';
+  document.getElementById('vision-preview-wrap').style.display='none';
+  document.getElementById('vision-thinking').style.display='none';
+  document.getElementById('vision-result-wrap').style.display='none';
+}
+
+function handleVisionPaste(e){
+  const item=[...e.clipboardData.items].find(i=>i.type.startsWith('image'));
+  if(!item) return;
+  readImageFile(item.getAsFile());
+}
+function handleVisionDrop(e){
+  e.preventDefault();
+  document.getElementById('vision-drop').classList.remove('dragover');
+  const file=e.dataTransfer.files[0];
+  if(file&&file.type.startsWith('image')) readImageFile(file);
+}
+function loadVisionFile(input){
+  if(input.files[0]) readImageFile(input.files[0]);
+}
+
+function readImageFile(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const dataUrl=e.target.result;
+    visionImageB64=dataUrl.split(',')[1];
+    const img=document.getElementById('vision-preview');
+    img.src=dataUrl;
+    document.getElementById('vision-upload-area').style.display='none';
+    document.getElementById('vision-preview-wrap').style.display='';
+    document.getElementById('vision-result-wrap').style.display='none';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function runVision(){
+  if(!visionImageB64) return;
+  document.getElementById('vision-preview-wrap').querySelector('div').style.display='none';
+  document.getElementById('vision-thinking').style.display='flex';
+  document.getElementById('vision-result-wrap').style.display='none';
+
+  // 登録済み素材名リストをプロンプトに含める（照合精度UP）
+  const matNames = D.materials.map(m=>m.name).join('、');
+
+  const prompt = `あなたはゲーム「Blue Protocol: Star Resonance」の取引所画面を読み取るアシスタントです。
+
+この画像は取引所の購入画面です。画面に表示されているアイテムカードをすべて読み取り、各アイテムの「名前」と「最低価格（数字）」を抽出してください。
+
+登録済み素材名リスト（照合用）:
+${matNames}
+
+以下のJSON形式のみで回答してください。前置き・説明は不要です:
+[
+  {"name": "アイテム名", "price": 数字},
+  ...
+]
+
+注意:
+- 「最低」の右に表示されている数字が価格です
+- 価格はカンマなしの整数で
+- 登録済み素材名リストにある名前と一致・近似するものは、リストの表記に合わせてください
+- 画面に表示されているアイテムをすべて列挙してください`;
+
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-opus-4-5-20251101',
+        max_tokens:1000,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'image',source:{type:'base64',media_type:'image/png',data:visionImageB64}},
+            {type:'text',text:prompt}
+          ]
+        }]
+      })
+    });
+    const data=await res.json();
+    const text=data.content.map(c=>c.text||'').join('');
+    const clean=text.replace(/```json|```/g,'').trim();
+    const parsed=JSON.parse(clean);
+    processVisionResults(parsed);
+  }catch(e){
+    document.getElementById('vision-thinking').style.display='none';
+    document.getElementById('vision-preview-wrap').querySelector('div').style.display='';
+    notif('エラー: '+e.message);
+  }
+}
+
+function matchMaterialByName(name){
+  // 完全一致
+  let m=D.materials.find(x=>x.name===name);
+  // 部分一致
+  if(!m) m=D.materials.find(x=>x.name.includes(name)||name.includes(x.name));
+  // あいまい（60%以上共通文字）
+  if(!m) m=D.materials.find(x=>{
+    const a=x.name,b=name;
+    if(Math.abs(a.length-b.length)>3) return false;
+    const common=[...a].filter(c=>b.includes(c)).length;
+    return common>=Math.min(a.length,b.length)*0.6;
+  });
+  return m||null;
+}
+
+function processVisionResults(parsed){
+  document.getElementById('vision-thinking').style.display='none';
+  document.getElementById('vision-preview-wrap').querySelector('div').style.display='';
+
+  visionResults=parsed.map(item=>{
+    const mat=matchMaterialByName(item.name);
+    return {rawName:item.name, price:item.price, mat, checked:!!mat};
+  });
+
+  renderVisionResults();
+  document.getElementById('vision-result-wrap').style.display='';
+}
+
+function renderVisionResults(){
+  const matched=visionResults.filter(r=>r.mat).length;
+  document.getElementById('vision-result-summary').textContent=
+    `${matched}件マッチ / ${visionResults.length}件検出`;
+  document.getElementById('vision-apply-btn').disabled=matched===0;
+  document.getElementById('vision-all-check').checked=true;
+
+  document.getElementById('vision-rows').innerHTML=visionResults.map((r,i)=>`
+    <div class="vision-row ${r.mat?'matched':'unmatched'}">
+      <input type="checkbox" id="vcr-${i}" ${r.checked&&r.mat?'checked':''} ${r.mat?'':'disabled'}>
+      <label for="vcr-${i}" class="vision-item-name">
+        ${r.mat?r.mat.name:r.rawName}
+        ${r.mat&&r.mat.name!==r.rawName?`<span style="font-size:10px;color:var(--t3)">(AI: ${r.rawName})</span>`:''}
+      </label>
+      <span class="vision-price">${r.price.toLocaleString()} ルーノ</span>
+      ${r.mat?'<span class="vision-tag-ok">マッチ</span>':'<span class="vision-tag-ng">未照合</span>'}
+    </div>
+  `).join('');
+}
+
+function toggleAllVisionChecks(checked){
+  visionResults.forEach((r,i)=>{
+    if(!r.mat) return;
+    const el=document.getElementById('vcr-'+i);
+    if(el) el.checked=checked;
+  });
+}
+
+function applyVisionResults(){
+  let applied=0;
+  visionResults.forEach((r,i)=>{
+    if(!r.mat) return;
+    const el=document.getElementById('vcr-'+i);
+    if(!el||!el.checked) return;
+    U[r.mat.id]=r.price;
+    applied++;
+  });
+  saveUser(); refreshChips(); refreshMatNavCounts(); renderMatBody();
+  closeVision();
+  notif(`${applied}件の価格を更新しました`);
+}
+
 /* ===================== STATE ===================== */
 const STORAGE_KEY  = 'starreso_user_v3';
 const STORAGE_MODE = 'starreso_mode_v3'; // 中間素材の取引所購入フラグ
@@ -275,7 +546,7 @@ function saveMode(){ localStorage.setItem(STORAGE_MODE, JSON.stringify(UM)); }
 function loadUI(){   try{ return JSON.parse(localStorage.getItem(STORAGE_UI))||{}; }catch{ return{}; } }
 function saveUI(){
   localStorage.setItem(STORAGE_UI, JSON.stringify({
-    masteryMode, matFilter, selId, catF,
+    masteryMode, matFilter, selId, catF, unkF,
     activePage: document.querySelector('.tab-page.active')?.id || 'page-mat'
   }));
 }
@@ -347,6 +618,7 @@ async function init(){
   }
   if(ui.matFilter) matFilter = ui.matFilter;
   if(ui.catF)      catF      = ui.catF;
+  if(ui.unkF)      unkF      = ui.unkF;
   if(ui.selId)     selId     = ui.selId;
 
   renderMatPage();
@@ -507,7 +779,7 @@ function calcProfit(recipe){
   const cost     = calcRecipeCost(recipe);
   const qty      = recipe.qtyPerCraft||1;
   const ownFocus = recipe.focus||0;
-  const sellUnk  = (sell === null || sell === undefined || (U[recipe.id] === undefined));
+  const sellUnk  = sell === null;
   const matUnk   = cost.hasUnk;
 
   if(sellUnk || matUnk){
@@ -546,7 +818,6 @@ function showPage(name,btn){
 
 /* ===================== PAGE: 素材価格入力 ===================== */
 let matFilter = 'ALL';
-let unkMatIds = new Set(); // 未入力素材ID（価格入力タブでハイライト用）
 
 // Sidebar filter values: 'ALL' | '素材ALL' | 'NPC購入可' | '中間素材' | '完成品'
 
@@ -565,8 +836,15 @@ function renderMatPage(){
   const intNpcCnt  = D.recipes.filter(r=>r.tag1==='中間素材'&&(r.tag2||[]).includes('NPC購入可')).length;
   const intNoNpcCnt= intCnt - intNpcCnt;
 
+  // 未入力カウント（価格入力タブ基準: U[id]が未設定のものだけ）
+  const unkMatCount  = D.materials.filter(m=>U[m.id]===undefined||U[m.id]===null).length;
+  const unkIntCount  = D.recipes.filter(r=>r.tag1==='中間素材'&&(U[r.id]===undefined||U[r.id]===null)).length;
+  const unkFinCount  = D.recipes.filter(r=>r.tag1==='完成品'&&(U[r.id]===undefined||U[r.id]===null)).length;
+  const unkTotal     = unkMatCount + unkIntCount + unkFinCount;
+
   const items = [
     { val:'ALL',         label:'すべて',                 cnt:allTotal },
+    { val:'未入力', label:'未入力', cnt:unkTotal, hidden:(unkTotal===0) },
     { val:'素材ALL',     label:'素材',                   cnt:noNpcMatCnt },
     { val:'素材NPC',     label:'素材（NPC購入可）',      cnt:npcMatCnt },
     { val:'中間素材',    label:'中間素材',                cnt:intNoNpcCnt },
@@ -574,16 +852,22 @@ function renderMatPage(){
     { val:'完成品',      label:'完成品',                 cnt:finCnt },
   ];
 
+  // 未入力0件なのにフィルタが未入力のままならALLに戻す
+  if(unkTotal===0 && matFilter==='未入力'){ matFilter='ALL'; saveUI(); }
+
   for(const it of items){
     const d = document.createElement('div');
     d.className='snav-item'+(matFilter===it.val?' active':'');
     d.style.paddingLeft = '12px';
+    if(it.val==='未入力'){ d.style.color='#b91c1c'; if(it.hidden) d.style.display='none'; }
+    d.dataset.navVal = it.val;
     d.innerHTML = `${it.label}<span class="snav-cnt">${it.cnt}</span>`;
     d.onclick=()=>{
       matFilter=it.val;
       document.querySelectorAll('.snav-item').forEach(e=>e.classList.remove('active'));
       d.classList.add('active');
       renderMatBody();
+      saveUI();
     };
     nav.appendChild(d);
   }
@@ -593,6 +877,7 @@ function renderMatPage(){
 function renderMatBody(){
   const titleMap = {
     'ALL':      'すべて',
+    '未入力':   '未入力',
     '素材ALL':  '素材',
     '素材NPC':  '素材（NPC購入可）',
     '中間素材': '中間素材',
@@ -603,16 +888,20 @@ function renderMatBody(){
 
   const wrap = document.getElementById('mat-body');
 
+  const showUnk     = matFilter==='未入力';
   const showMats    = matFilter==='ALL' || matFilter==='素材ALL';
   const showNpcMats = matFilter==='素材NPC';
   const showInt     = matFilter==='ALL' || matFilter==='中間素材';
   const showIntNpc  = matFilter==='中間NPC';
   const showFin     = matFilter==='ALL' || matFilter==='完成品';
 
-  // 素材: NPC購入可フィルタ時はNPCのみ、素材ALLはNPC以外のみ、ALLは全件
-  let mats = matFilter==='ALL'  ? D.materials
-           : showMats            ? D.materials.filter(m=>!m.tag2.includes('NPC購入可'))
-           : showNpcMats         ? D.materials.filter(m=>m.tag2.includes('NPC購入可'))
+  const isUnk = id => U[id]===undefined || U[id]===null;
+
+  // 素材: 未入力フィルタ/NPC購入可フィルタ/通常
+  let mats = showUnk     ? D.materials.filter(m=>isUnk(m.id))
+           : matFilter==='ALL'  ? D.materials
+           : showMats    ? D.materials.filter(m=>!m.tag2.includes('NPC購入可'))
+           : showNpcMats ? D.materials.filter(m=>m.tag2.includes('NPC購入可'))
            : [];
   // ── 素材テーブル ──
   let rows='';
@@ -623,10 +912,14 @@ function renderMatBody(){
     const tags2html = m.tag2.map(t=>`<span class="tag tag-${t}">${t}</span>`).join('');
     const shopsHtml = (m.npcShops||[]).length
       ? `<div style="font-size:10px;color:var(--npc);margin-top:3px">${m.npcShops.join(' · ')}</div>` : '';
+    const matUnk = isUnk(m.id);
     rows+=`<tr id="mat-row-${m.id}">
       <td>
         <div class="mat-name">${m.name}</div>
-        ${tags2html ? `<div class="mat-tags">${tags2html}</div>` : ''}
+        <div class="mat-tags">
+          ${tags2html}
+          ${matUnk?'<span class="tag tag-未入力">未入力</span>':''}
+        </div>
         ${shopsHtml}
       </td>
       <td class="col-r">
@@ -643,7 +936,8 @@ function renderMatBody(){
   }
 
   // ── 中間素材テーブル ──
-  const intRecipes = showInt    ? D.recipes.filter(r=>r.tag1==='中間素材'&&!(r.tag2||[]).includes('NPC購入可'))
+  const intRecipes = showUnk    ? D.recipes.filter(r=>r.tag1==='中間素材'&&isUnk(r.id))
+                  : showInt    ? D.recipes.filter(r=>r.tag1==='中間素材'&&!(r.tag2||[]).includes('NPC購入可'))
                   : showIntNpc  ? D.recipes.filter(r=>r.tag1==='中間素材'&&(r.tag2||[]).includes('NPC購入可'))
                   : [];
   let intRows='';
@@ -660,6 +954,7 @@ function renderMatBody(){
         <div class="mat-tags">
           <span class="tag tag-中間素材">中間素材</span>
           <span class="tag" style="background:var(--g-l);color:var(--g)">${autoStr}</span>
+          ${isUnk(r.id)?'<span class="tag tag-未入力">未入力</span>':''}
         </div>
       </td>
       <td class="col-r">
@@ -679,7 +974,7 @@ function renderMatBody(){
   }
 
   // ── 完成品テーブル ──
-  const finRecipes = showFin ? D.recipes.filter(r=>r.tag1==='完成品') : [];
+  const finRecipes = (showFin||showUnk) ? D.recipes.filter(r=>r.tag1==='完成品'&&(showFin||isUnk(r.id))) : [];
   let finRows='';
   for(const r of finRecipes){
     const v = U[r.id] ?? '';
@@ -690,6 +985,7 @@ function renderMatBody(){
         <div class="mat-tags">
           <span class="tag tag-完成品">完成品</span>
           <span class="cat-badge cat-${r.category}">${r.category}</span>
+          ${isUnk(r.id)?'<span class="tag tag-未入力">未入力</span>':''}
         </div>
       </td>
       <td class="col-r">
@@ -744,6 +1040,7 @@ function setMatPrice(id, el){
   if(!isNaN(v)&&v>=0){ U[id]=v; el.classList.add('filled'); }
   else { delete U[id]; el.classList.remove('filled'); }
   saveUser(); refreshChips(); saveUI();
+  refreshMatNavCounts();
 }
 
 function setRecipeMarketPrice(id, el){
@@ -751,30 +1048,53 @@ function setRecipeMarketPrice(id, el){
   if(!isNaN(v)&&v>=0){ U[id]=v; el.classList.add('filled'); }
   else { delete U[id]; el.classList.remove('filled'); }
   saveUser(); refreshChips(); saveUI();
+  refreshMatNavCounts();
+}
+
+// サイドバーのカウントバッジだけ再計算（入力中にリアルタイム更新）
+function refreshMatNavCounts(){
+  const matTotal  = D.materials.length;
+  const npcMatCnt = D.materials.filter(m=>m.tag2.includes('NPC購入可')).length;
+  const intCnt    = D.recipes.filter(r=>r.tag1==='中間素材').length;
+  const intNpcCnt = D.recipes.filter(r=>r.tag1==='中間素材'&&(r.tag2||[]).includes('NPC購入可')).length;
+  const finCnt    = D.recipes.filter(r=>r.tag1==='完成品').length;
+  const isUnk     = id => U[id]===undefined || U[id]===null;
+  const unkMatCount = D.materials.filter(m=>isUnk(m.id)).length;
+  const unkIntCount = D.recipes.filter(r=>r.tag1==='中間素材'&&isUnk(r.id)).length;
+  const unkFinCount = D.recipes.filter(r=>r.tag1==='完成品'&&isUnk(r.id)).length;
+  const unkTotal    = unkMatCount + unkIntCount + unkFinCount;
+
+  const counts = {
+    'ALL':      matTotal + intCnt + finCnt,
+    '未入力':   unkTotal,
+    '素材ALL':  matTotal - npcMatCnt,
+    '素材NPC':  npcMatCnt,
+    '中間素材': intCnt - intNpcCnt,
+    '中間NPC':  intNpcCnt,
+    '完成品':   finCnt,
+  };
+  document.querySelectorAll('#mat-nav .snav-item').forEach(el=>{
+    const val = el.dataset.navVal;
+    const cnt = el.querySelector('.snav-cnt');
+    if(!val || !cnt) return;
+    if(val==='未入力'){
+      el.style.display = unkTotal===0 ? 'none' : '';
+      cnt.textContent = unkTotal;
+      if(unkTotal===0 && matFilter==='未入力'){
+        matFilter='ALL';
+        saveUI();
+        // フィルタが未入力で0件になったら再描画
+        renderMatBody();
+      }
+    } else if(counts[val]!==undefined){
+      cnt.textContent = counts[val];
+    }
+  });
+  // 未入力フィルタ中は本体も再描画（行の表示/非表示を反映）
+  if(matFilter==='未入力') renderMatBody();
 }
 
 // 未入力素材のハイライト (価格入力タブに反映)
-function setMatUnkHighlight(unkNames){
-  // ID セットを更新
-  unkMatIds.clear();
-  if(unkNames && unkNames.length){
-    for(const name of unkNames){
-      const mat = D.materials.find(m=>m.name===name);
-      const rec = D.recipes.find(r=>r.name===name);
-      const id  = mat?.id || rec?.id;
-      if(id) unkMatIds.add(id);
-    }
-  }
-  applyUnkHighlight();
-}
-
-function applyUnkHighlight(){
-  document.querySelectorAll('.mat-row-unk').forEach(el=>el.classList.remove('mat-row-unk'));
-  for(const id of unkMatIds){
-    const row = document.getElementById('mat-row-'+id);
-    if(row) row.classList.add('mat-row-unk');
-  }
-}
 
 // 素材価格入力タブの該当行にジャンプ
 function jumpToMat(id){
@@ -797,7 +1117,7 @@ function jumpToMat(id){
 }
 
 /* ===================== PAGE: 計算 ===================== */
-let selId=null, catF='ALL', searchQ='';
+let selId=null, catF='ALL', searchQ='', unkF=false;
 
 function renderCalcList(){
   const bar=document.getElementById('cat-bar');
@@ -810,20 +1130,51 @@ function renderCalcList(){
     b.onclick=()=>{ catF=cat; document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); renderCalcItems(); saveUI(); };
     bar.appendChild(b);
   }
+  // 未入力フィルタボタン（未入力が1件以上あるときのみ表示）
+  const hasAnyUnk = D.recipes.some(r=>recipeHasUnk(r));
+  if(hasAnyUnk){
+    const unkBtn=document.createElement('button');
+    unkBtn.id='unk-fbtn';
+    unkBtn.className='fbtn'+(unkF?' active':'');
+    unkBtn.style.cssText=unkF
+      ?'margin-left:8px;background:#b91c1c;border-color:#b91c1c;color:#fff'
+      :'margin-left:8px;border-color:#fca5a5;color:#b91c1c';
+    unkBtn.textContent='未入力あり';
+    unkBtn.onclick=()=>{
+      unkF=!unkF;
+      unkBtn.className='fbtn'+(unkF?' active':'');
+      unkBtn.style.cssText=unkF
+        ?'margin-left:8px;background:#b91c1c;border-color:#b91c1c;color:#fff'
+        :'margin-left:8px;border-color:#fca5a5;color:#b91c1c';
+      renderCalcItems(); saveUI();
+    };
+    bar.appendChild(unkBtn);
+  } else if(unkF){
+    // 未入力0件なのにunkFがONなら解除
+    unkF=false; saveUI();
+  }
   renderCalcItems();
 }
 
 function onSearch(q){ searchQ=q; renderCalcItems(); }
 
+function recipeHasUnk(r){
+  // 費用計算タブ基準: 素材未入力 OR 売値未設定 のどちらかでも未入力
+  const p = calcProfit(r);
+  return p.matUnk || p.sellUnk;
+}
+
 function renderCalcItems(){
   let items=D.recipes;
   if(catF!=='ALL') items=items.filter(r=>r.category===catF);
   if(searchQ){ const q=searchQ.toLowerCase(); items=items.filter(r=>r.name.toLowerCase().includes(q)); }
+  if(unkF) items=items.filter(r=>recipeHasUnk(r));
 
   const list=document.getElementById('item-list');
   list.innerHTML='';
   for(const r of items){
     const p=calcProfit(r);
+    const hasUnk=recipeHasUnk(r);
     const row=document.createElement('div');
     row.className='item-row'+(selId===r.id?' sel':'');
     row.dataset.id=r.id;
@@ -839,7 +1190,10 @@ function renderCalcItems(){
       <div class="dot" style="background:${catColor(r.category)}"></div>
       <div>
         <div class="row-name">${r.name}</div>
-        <div class="row-sub"><span class="tag tag-${r.tag1}">${r.tag1}</span></div>
+        <div class="row-sub">
+          <span class="tag tag-${r.tag1}">${r.tag1}</span>
+          ${hasUnk?'<span class="tag tag-未入力">未入力</span>':''}
+        </div>
       </div>
       ${chip}`;
     list.appendChild(row);
@@ -855,8 +1209,23 @@ function refreshChips(){
       chip.className=`chip ${p.profitRuno>0?'chip-p':p.profitRuno<0?'chip-l':'chip-z'}`;
       chip.textContent=`${p.profitRuno>=0?'+':''}${fmt(p.profitRuno)}`;
     } else { chip.className='chip chip-z'; chip.textContent='—'; }
+    // 未入力タグ更新
+    const sub=row.querySelector('.row-sub');
+    if(sub){
+      const hasUnk=recipeHasUnk(r);
+      const existing=sub.querySelector('.tag-未入力');
+      if(hasUnk && !existing) sub.insertAdjacentHTML('beforeend','<span class="tag tag-未入力">未入力</span>');
+      else if(!hasUnk && existing) existing.remove();
+    }
   });
   if(selId) renderDetail();
+  // 費用計算タブが表示中なら未入力ボタンの表示状態も更新
+  if(document.getElementById('page-calc').classList.contains('active')){
+    const hasAnyUnk = D.recipes.some(r=>recipeHasUnk(r));
+    const unkBtn = document.getElementById('unk-fbtn');
+    if(!hasAnyUnk && unkBtn){ unkBtn.remove(); if(unkF){ unkF=false; saveUI(); renderCalcItems(); } }
+    else if(hasAnyUnk && !unkBtn) renderCalcList(); // ボタンが消えていたら再生成
+  }
 }
 
 function selectItem(id){
@@ -955,9 +1324,6 @@ function renderDetail(){
   const perFocusDisp   = p.perFocus!=null ? (p.perFocus>=0?'+':'')+fmt(p.perFocus)+' / フォーカス' : (p.totalFocus?'?':'—');
   const perFocusCls    = p.perFocus!=null ? (p.perFocus>0?'v-profit':p.perFocus<0?'v-loss':'') : '';
 
-  // 未入力素材を価格入力タブでハイライト
-  const unkNames = cost.breakdown.filter(b=>b.src==='unknown').map(b=>b.name);
-  setMatUnkHighlight(unkNames);
 
   panel.innerHTML=`<div style="max-width:720px">
     <div class="det-header">
