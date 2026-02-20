@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>スタレゾ フォーカス消費効率計算機</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --white:#fff;--bg:#f5f6fa;--bg2:#eef0f7;
+  --border:#e2e5f0;--border2:#d0d4e8;
+  --accent:#3d6ef5;--accent-l:#eef1ff;
+  --g:#0bbf97;--g-l:#e6faf6;
+  --npc:#7c4dff;--npc-l:#f5eeff;
+  --profit:#0aab6a;--profit-l:#e6f8f0;
+  --loss:#e8354a;--loss-l:#fdeef0;
+  --warn:#e08c00;--warn-l:#fff8e6;
+  --focus:#0ea5e9;--focus-l:#e0f5ff;
+  --normal:#64748b;--normal-l:#f1f5f9;
+  --t1:#1a1e2e;--t2:#4a5270;--t3:#8a91b0;--t4:#c2c7db;
+  --mono:'DM Mono',monospace;--sans:'M PLUS 2',sans-serif;
+  --r:10px;--sh:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);--sh-lg:0 8px 24px rgba(0,0,0,.10)
+}
+html{font-size:14px}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100vh;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.app-body{flex:1;overflow:hidden}
+.tab-page{display:none;height:100%}.tab-page.active{display:flex}
+
+/* HEADER */
+.app-header{background:var(--white);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;height:56px;gap:16px;flex-shrink:0;box-shadow:var(--sh);z-index:50}
+.logo{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,var(--accent) 0%,#6b48ff 100%);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.app-title{font-size:14px;font-weight:800;letter-spacing:.02em}
+.app-sub{font-size:10px;color:var(--t3);font-weight:500;letter-spacing:.04em}
+.nav{display:flex;align-items:center;gap:2px;margin-left:20px}
+.nav-btn{padding:5px 14px;border-radius:7px;border:none;background:transparent;color:var(--t2);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{background:var(--bg);color:var(--t1)}
+.nav-btn.active{background:var(--accent-l);color:var(--accent)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--t3);background:var(--bg2)}
+.badge.ok{color:var(--profit);background:var(--profit-l);border-color:#a8e6cc}
+.badge.err{color:var(--loss);background:var(--loss-l);border-color:#f4b8be}
+
+/* LOADING / NOTIF */
+.loading{position:fixed;inset:0;background:var(--white);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:12px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.notif{position:fixed;bottom:18px;right:18px;background:var(--t1);color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;box-shadow:var(--sh-lg);transform:translateY(60px);opacity:0;transition:all .25s cubic-bezier(.34,1.56,.64,1);z-index:999}
+.notif.show{transform:translateY(0);opacity:1}
+
+/* TAG BADGES */
+.tag{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap}
+.tag-完成品{background:var(--accent-l);color:var(--accent)}
+.tag-中間素材{background:var(--warn-l);color:var(--warn)}
+.tag-素材{background:var(--bg2);color:var(--t2)}
+.tag-NPC購入可{background:var(--npc-l);color:var(--npc)}
+.tag-フォーカス採取{background:var(--focus-l);color:var(--focus)}
+.tag-通常採取{background:var(--normal-l);color:var(--normal)}
+.tag-制作物{background:var(--profit-l);color:var(--profit)}
+
+/* CATEGORY BADGES */
+.cat-badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700}
+.cat-料理{background:#fff5e6;color:#d47800}.cat-錬金{background:#e6faf6;color:#0b9e7d}
+.cat-工芸{background:#f5eeff;color:#7c4dff}.cat-木工{background:#f5ede6;color:#8d5e2a}
+.cat-鍛造{background:#eef4f8;color:#4a7fa0}.cat-織物{background:#fff0f5;color:#d44087}
+
+/* ===================== PAGE: 素材価格入力 ===================== */
+#page-mat{flex-direction:row;overflow:hidden}
+.mat-sidebar{width:220px;flex-shrink:0;border-right:1px solid var(--border);background:var(--white);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-head{padding:12px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.07em;text-transform:uppercase}
+.sidebar-nav{flex:1;overflow-y:auto;padding:8px}
+.snav-item{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;color:var(--t2);transition:all .12s;user-select:none}
+.snav-item:hover{background:var(--bg);color:var(--t1)}
+.snav-item.active{background:var(--accent-l);color:var(--accent);font-weight:700}
+.snav-cnt{margin-left:auto;font-size:10px;background:var(--bg2);color:var(--t3);padding:1px 6px;border-radius:10px;font-family:var(--mono)}
+.mat-main{flex:1;overflow-y:auto;padding:24px 28px;background:var(--bg)}
+.page-title{font-size:16px;font-weight:800;margin-bottom:16px}
+
+/* Material table */
+.mat-tbl-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden;margin-bottom:12px}
+.mat-tbl{width:100%;border-collapse:collapse}
+.mat-tbl th{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;padding:8px 16px;text-align:left;background:var(--bg);border-bottom:1px solid var(--border)}
+.mat-tbl td{padding:10px 16px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.mat-tbl tr:last-child td{border-bottom:none}
+.mat-tbl tr:hover td{background:#fafbff}
+.mat-name{font-weight:600}
+.mat-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+.col-r{text-align:right;white-space:nowrap}
+
+/* Price input */
+.price-wrap{display:flex;align-items:center;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.npc-ref{font-size:10px;color:var(--npc);background:var(--npc-l);padding:2px 7px;border-radius:4px;font-family:var(--mono);white-space:nowrap;border:1px solid rgba(124,77,255,.2)}
+.price-inp{width:120px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-family:var(--mono);font-size:13px;padding:6px 10px;text-align:right;outline:none;transition:border-color .15s,background .15s}
+.price-inp:focus{border-color:var(--accent);background:var(--white);box-shadow:0 0 0 3px rgba(61,110,245,.1)}
+.price-inp.filled{border-color:var(--g);background:var(--g-l)}
+.unit{font-size:11px;color:var(--t3)}
+
+/* ===================== PAGE: 計算 ===================== */
+#page-calc{flex-direction:row;overflow:hidden}
+.list-col{width:300px;flex-shrink:0;border-right:1px solid var(--border);background:var(--white);display:flex;flex-direction:column;overflow:hidden}
+.list-head{padding:14px 14px 10px;border-bottom:1px solid var(--border)}
+.list-head h2{font-size:13px;font-weight:700;margin-bottom:10px}
+.search-wrap{position:relative}
+.search-wrap input{width:100%;padding:7px 10px 7px 30px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:12px;outline:none;transition:border-color .15s}
+.search-wrap input:focus{border-color:var(--accent);background:var(--white)}
+.search-wrap::before{content:'▷';position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px;pointer-events:none}
+.filter-bar{display:flex;flex-wrap:wrap;gap:4px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--bg)}
+.fbtn{padding:3px 8px;border-radius:20px;border:1px solid var(--border);background:var(--white);color:var(--t2);font-family:var(--sans);font-size:11px;font-weight:600;cursor:pointer;transition:all .12s}
+.fbtn:hover{border-color:var(--accent);color:var(--accent)}
+.fbtn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.item-scroll{flex:1;overflow-y:auto}
+.item-row{display:flex;align-items:center;padding:9px 14px;gap:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s}
+.item-row:last-child{border-bottom:none}
+.item-row:hover{background:#fafbff}
+.item-row.sel{background:var(--accent-l);border-left:3px solid var(--accent);padding-left:11px}
+.row-name{flex:1;font-size:13px;font-weight:500;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-sub{font-size:10px;color:var(--t3);margin-top:1px}
+.chip{font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:5px;white-space:nowrap;flex-shrink:0}
+.chip-p{background:var(--profit-l);color:var(--profit)}.chip-l{background:var(--loss-l);color:var(--loss)}.chip-z{background:var(--bg2);color:var(--t3)}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* Detail */
+.detail-col{flex:1;overflow-y:auto;background:var(--bg);padding:28px}
+.empty-state{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--t3);gap:10px}
+.empty-state .icon{font-size:36px}
+.det-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:20px}
+.det-icon{width:48px;height:48px;border-radius:10px;background:var(--accent-l);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;border:1px solid var(--border)}
+.det-name{font-size:19px;font-weight:800;margin-bottom:6px}
+.det-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh)}
+.stat-card.hi{border-color:var(--accent);background:var(--accent-l)}
+.stat-lbl{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px}
+.stat-val{font-family:var(--mono);font-size:20px;font-weight:500}
+.stat-card.hi .stat-val{color:var(--accent)}
+.v-profit{color:var(--profit)}.v-loss{color:var(--loss)}.v-accent{color:var(--accent)}.v-warn{color:var(--warn)}
+.sec-title{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;margin-top:22px;display:flex;align-items:center;gap:8px}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.warn-box{font-size:12px;color:var(--warn);background:var(--warn-l);padding:8px 12px;border-radius:7px;margin-bottom:16px}
+
+/* Breakdown table */
+.bd-tbl{width:100%;border-collapse:collapse;background:var(--white);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}
+.bd-tbl th{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;padding:8px 14px;text-align:left;background:var(--bg);border-bottom:1px solid var(--border)}
+.bd-tbl th:last-child{text-align:right}
+.bd-tbl td{padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:top}
+.bd-tbl tr:last-child td{border-bottom:none}
+.bd-tbl tr:hover td{background:#fafbff}
+.bd-tbl td:last-child{text-align:right;font-family:var(--mono);font-size:12px;color:var(--t2)}
+.tr-main{font-weight:600;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.tr-sub{font-size:11px;color:var(--t3);padding-left:12px;line-height:1.9}
+.tr-sub::before{content:'└ ';color:var(--t4)}
+/* cost source badge */
+.src-auto{background:var(--g-l);color:var(--g);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px}
+.src-mkt{background:var(--accent-l);color:var(--accent);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px}
+.mat-clickable{cursor:pointer;text-decoration:underline dotted var(--t3);transition:color .1s}
+.mat-clickable:hover{color:var(--accent)}
+@keyframes jump-flash{0%,100%{background:transparent}40%{background:#fff3cd}}
+.jump-highlight{animation:jump-flash 1.2s ease}
+/* 通貨バッジ */
+.cur-runo{background:#eef1ff;color:#3d6ef5;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;font-family:var(--mono);white-space:nowrap;display:inline-block}
+.cur-bind{background:var(--npc-l);color:var(--npc);font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;font-family:var(--mono);white-space:nowrap;display:inline-block}
+.cur-focus{background:var(--focus-l);color:var(--focus);font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;font-family:var(--mono);white-space:nowrap;display:inline-block}
+.unk{background:var(--loss-l);color:var(--loss);font-size:11px;font-family:var(--mono);padding:2px 8px;border-radius:5px;display:inline-block}
+.info-box{background:#f0f7ff;border:1px solid #b8d9f5;color:#2563a6;border-radius:7px;padding:10px 14px;font-size:12px;margin-bottom:12px}
+.mkt-toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.mkt-toggle input[type=checkbox]{width:15px;height:15px;cursor:pointer;accent-color:var(--accent)}
+.mkt-toggle-label{font-size:12px;font-weight:600;color:var(--t2)}
+.mkt-toggle:has(input:checked) .mkt-toggle-label{color:var(--accent)}
+
+/* ===================== PAGE: ランキング ===================== */
+#page-rank{flex-direction:column;overflow-y:auto;padding:28px;background:var(--bg)}
+.rank-wrap{max-width:800px;width:100%;margin:0 auto}
+.rank-title{font-size:18px;font-weight:800;margin-bottom:5px}
+.rank-sub{font-size:12px;color:var(--t3);margin-bottom:22px}
+.rank-tbl{width:100%;border-collapse:collapse;background:var(--white);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden}
+.rank-tbl th{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;text-align:left;background:var(--bg);border-bottom:1px solid var(--border)}
+.rank-tbl th:nth-child(n+4){text-align:right}
+.rank-tbl td{padding:11px 16px;font-size:13px;border-bottom:1px solid var(--border)}
+.rank-tbl tr:last-child td{border-bottom:none}
+.rank-tbl tr:hover td{background:#fafbff}
+.rank-tbl td:nth-child(n+4){text-align:right;font-family:var(--mono)}
+.rank-no{font-size:13px;font-weight:700;color:var(--t3);font-family:var(--mono)}
+.mastery-btn{padding:4px 12px;border-radius:20px;border:none;cursor:pointer;font-size:12px;font-weight:700;transition:all .15s}
+.mastery-btn.mastery-on{background:var(--profit-l);color:var(--profit);border:1.5px solid var(--profit)}
+.mastery-btn.mastery-off{background:var(--bg2);color:var(--t3);border:1.5px solid var(--border)}
+.rank-name-link{cursor:pointer;color:inherit;text-decoration:underline dotted var(--t3)}
+.rank-name-link:hover{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div style="font-size:13px;color:var(--t3)">データを読み込み中...</div>
+</div>
+
+<div id="app" style="opacity:0;transition:opacity .3s">
+  <header class="app-header">
+    
+    <div>
+      <div class="app-title">スタレゾ フォーカス消費効率計算機</div>
+      <div class="app-sub">BLUE PROTOCOL: STAR RESONANCE</div>
+    </div>
+    <nav class="nav">
+      <button class="nav-btn active" onclick="showPage('mat',this)">価格入力</button>
+      <button class="nav-btn" onclick="showPage('calc',this)">作成物 費用計算</button>
+      <button class="nav-btn" onclick="showPage('rank',this)">ランキング</button>
+    </nav>
+    <div class="header-right" style="display:flex;align-items:center;gap:8px">
+      <button id="skill-btn" onclick="toggleSkill()" class="mastery-btn mastery-on" title="マスタリーボーナス計算のON/OFF">マスタリー ON</button>
+      <span class="badge" id="data-badge">読込中</span>
+    </div>
+  </header>
+
+  <div class="app-body">
+
+    <!-- 素材価格入力 -->
+    <div id="page-mat" class="tab-page active">
+      <aside class="mat-sidebar">
+        <div class="sidebar-head">絞り込み</div>
+        <div class="sidebar-nav" id="mat-nav"></div>
+      </aside>
+      <main class="mat-main">
+        <div class="page-title" id="mat-title">すべての素材</div>
+        <div id="mat-body"></div>
+      </main>
+    </div>
+
+    <!-- 計算 -->
+    <div id="page-calc" class="tab-page">
+      <div class="list-col">
+        <div class="list-head">
+          <h2>作成物一覧</h2>
+          <div class="search-wrap">
+            <input type="text" placeholder="名前で検索..." oninput="onSearch(this.value)">
+          </div>
+        </div>
+        <div class="filter-bar" id="cat-bar"></div>
+        <div class="item-scroll" id="item-list"></div>
+      </div>
+      <div class="detail-col" id="detail">
+        <div class="empty-state"><p>左のリストからアイテムを選択してください</p></div>
+      </div>
+    </div>
+
+    <!-- ランキング -->
+    <div id="page-rank" class="tab-page">
+      <div class="rank-wrap">
+        <div class="rank-title">利益ランキング</div>
+        <div class="rank-sub">販売価格と全素材価格が入力済みの作成物（完成品・中間素材）が対象</div>
+        <div id="rank-body"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div class="notif" id="notif"></div>
+
+<script>
+/* ===================== STATE ===================== */
+const STORAGE_KEY  = 'starreso_user_v3';
+const STORAGE_MODE = 'starreso_mode_v3'; // 中間素材の取引所購入フラグ
+const STORAGE_DATA = 'starreso_data_v3'; // 管理者が保存したマスターデータ
+const STORAGE_UI   = 'starreso_ui_v3';   // UI状態（マスタリー・フィルタ等）
+let D  = { materials:[], recipes:[] }; // master data
+let U  = loadUser();  // user prices: { matId/recipeId: price }
+let UM = loadMode();  // user mode:  { recipeId: true=取引所購入, false/undefined=自動計算 }
+
+function loadUser(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY))||{}; }catch{ return{}; } }
+function saveUser(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(U)); }
+function loadMode(){ try{ return JSON.parse(localStorage.getItem(STORAGE_MODE))||{}; }catch{ return{}; } }
+function saveMode(){ localStorage.setItem(STORAGE_MODE, JSON.stringify(UM)); }
+function loadUI(){   try{ return JSON.parse(localStorage.getItem(STORAGE_UI))||{}; }catch{ return{}; } }
+function saveUI(){
+  localStorage.setItem(STORAGE_UI, JSON.stringify({
+    masteryMode, matFilter, selId, catF,
+    activePage: document.querySelector('.tab-page.active')?.id || 'page-mat'
+  }));
+}
+function loadStoredData(){
+  try{
+    const raw=localStorage.getItem(STORAGE_DATA);
+    if(raw){ const d=JSON.parse(raw); if(d.materials&&d.recipes) return d; }
+  }catch(e){}
+  return null;
+}
+
+function setIntMode(id, useMarket){
+  if(useMarket) UM[id]=true; else delete UM[id];
+  saveMode();
+  renderMatBody();
+  refreshChips();
+}
+
+function setAllIntMode(useMarket){
+  for(const r of D.recipes.filter(r=>r.tag1==='中間素材')){
+    if(useMarket) UM[r.id]=true; else delete UM[r.id];
+  }
+  saveMode();
+  renderMatBody();
+  refreshChips();
+}
+
+/* ===================== LOAD ===================== */
+/* ---- インライン埋め込みデータ（ローカルfile://でも動作） ---- */
+const INLINE_DATA = {"materials":[{"id":"m17715500825150.027191333549412833","name":"アズート鉱石","tag1":"素材","tag2":[],"npcPrice":null,"npcShops":[]},{"id":"m17715501701520.10791606628704498","name":"木炭","tag1":"素材","tag2":["NPC購入可"],"npcPrice":660,"npcShops":["木工素材交換"]},{"id":"m17715502591750.8569311540706177","name":"ルナー鉱石","tag1":"素材","tag2":[],"npcPrice":null,"npcShops":[]},{"id":"m17715503046560.4270561090701753","name":"バルー鉱石","tag1":"素材","tag2":[],"npcPrice":null,"npcShops":[]}],"recipes":[{"id":"r1771550082515","name":"輝光石","category":"鍛造","tag1":"完成品","tag2":[],"qtyPerCraft":1,"focus":10,"skill":15,"note":"","materials":[{"name":"アズート鉱石","qty":8,"tag1":"素材"},{"name":"速燃性炭粉","qty":1,"tag1":"中間素材"}]},{"id":"r17715500825150.5436580541549987","name":"速燃性炭粉","category":"木工","tag1":"中間素材","tag2":[],"qtyPerCraft":20,"focus":20,"skill":0,"note":"","materials":[{"name":"木炭","qty":1,"tag1":"素材"}]},{"id":"r1771550259175","name":"精練石","category":"鍛造","tag1":"完成品","tag2":[],"qtyPerCraft":1,"focus":10,"skill":15,"note":"","materials":[{"name":"ルナー鉱石","qty":8,"tag1":"素材"},{"name":"速燃性炭粉","qty":1,"tag1":"中間素材"}]},{"id":"r1771550304656","name":"謎の金属","category":"鍛造","tag1":"完成品","tag2":[],"qtyPerCraft":1,"focus":10,"skill":15,"note":"","materials":[{"name":"バルー鉱石","qty":8,"tag1":"素材"},{"name":"速燃性炭粉","qty":1,"tag1":"中間素材"}]}]};
+
+async function init(){
+  const badge = document.getElementById('data-badge');
+
+  // 1st: 管理者が保存したデータ（localStorage）
+  const stored = loadStoredData();
+  if(stored){
+    D = stored;
+    badge.textContent='管理者データ読込済'; badge.className='badge ok';
+  } else {
+    // 2nd: data.json
+    try{
+      const res = await fetch('data.json?'+Date.now());
+      if(!res.ok) throw new Error(res.status);
+      D = await res.json();
+      badge.textContent='データ読込済（サーバー）'; badge.className='badge ok';
+    }catch(e){
+      // 3rd: インラインデータ
+      D = JSON.parse(JSON.stringify(INLINE_DATA));
+      badge.textContent='インラインデータ使用中'; badge.className='badge ok';
+    }
+  }
+
+  // NPC価格をデフォルト入力（未入力のもののみ）
+  for(const m of D.materials){
+    if(m.npcPrice != null && U[m.id] == null) U[m.id] = m.npcPrice;
+  }
+  saveUser();
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.opacity='1';
+
+  // ── UI状態を復元 ──
+  const ui = loadUI();
+  if(ui.masteryMode === false){
+    masteryMode = false;
+    const btn = document.getElementById('skill-btn');
+    btn.textContent = 'マスタリー OFF';
+    btn.className   = 'mastery-btn mastery-off';
+  }
+  if(ui.matFilter) matFilter = ui.matFilter;
+  if(ui.catF)      catF      = ui.catF;
+  if(ui.selId)     selId     = ui.selId;
+
+  renderMatPage();
+  renderCalcList();
+
+  // アクティブページを復元
+  if(ui.activePage && ui.activePage !== 'page-mat'){
+    const pageId = ui.activePage.replace('page-','');
+    const btn = document.querySelector(`.nav-btn[onclick*="'${pageId}'"]`);
+    if(btn) showPage(pageId, btn);
+  }
+}
+
+/* ===================== HELPERS ===================== */
+const fmt  = n => Math.round(n).toLocaleString('ja-JP');
+const fmtQ = n => n%1===0 ? String(n) : n.toFixed(2).replace(/\.?0+$/,'');
+const catEmoji = c => c||'';
+const catColor = c => ({料理:'#d47800',錬金:'#0b9e7d',工芸:'#7c4dff',木工:'#8d5e2a',鍛造:'#4a7fa0',織物:'#d44087'}[c]||'#8a91b0');
+
+function getMat(name){ return D.materials.find(m=>m.name===name); }
+function getRecipe(name){ return D.recipes.find(r=>r.name===name); }
+
+// スキルボーナスON/OFF
+let masteryMode = true;
+function toggleSkill(){
+  masteryMode = !masteryMode;
+  const btn = document.getElementById('skill-btn');
+  btn.textContent = masteryMode ? 'マスタリー ON' : 'マスタリー OFF';
+  btn.className = masteryMode ? 'mastery-btn mastery-on' : 'mastery-btn mastery-off';
+  refreshChips();
+  if(document.getElementById('page-rank').classList.contains('active')) renderRanking();
+  saveUI();
+}
+
+// effective user price for a material. Returns the stored value (including 0), or null if unset.
+function userMatPrice(mat){
+  const v = U[mat.id];
+  return (v !== undefined && v !== null) ? v : null;
+}
+
+// スキル期待値倍率: 通常qtyPerCraft個、skill%確率でもう1個追加
+// 例) qty=3, skill=30% → 期待値 3 + 3×0.3 = 3.9個 → 倍率=3.9/3=1.3
+function skillMultiplier(recipe){
+  if(!masteryMode || !recipe.skill) return 1;
+  const p = recipe.skill / 100;
+  return 1 + p; // 毎回クラフトごとにp確率で+1個なので (qty + qty*p)/qty = 1+p
+}
+
+/*
+ * ===================== 計算エンジン =====================
+ *
+ * 通貨区別:
+ *   runo     = ルーノ     (取引所・市場価格)
+ *   bindRuno = バインドルーノ (NPC購入価格)
+ *
+ * フォーカス:
+ *   自動計算経路を通る場合のみ消費フォーカスを積み上げる
+ *   取引所価格を使った場合はフォーカス消費なし
+ *
+ * calcRecipeCost の戻り値 (1クラフト分):
+ *   runo, bindRuno, focus, hasUnk, breakdown
+ *
+ * breakdown の各要素:
+ *   { name, qty,
+ *     runo, bindRuno, focusUsed,   ← この行の負担分
+ *     src: 'auto'|'market'|'npc'|'raw'|'unknown',
+ *     isRecipe, npcPrice, tag2,
+ *     autoRunoPer, autoBindPer, autoFocusPer,  ← 自動計算時の単価
+ *     mktPrice,                                ← 取引所価格
+ *     subBreakdown, subQtyPerCraft }
+ */
+function calcRecipeCost(recipe, visited=new Set()){
+  if(visited.has(recipe.id)) return {runo:null,bindRuno:0,focus:0,hasUnk:true,breakdown:[]};
+  visited.add(recipe.id);
+
+  let totalRuno=0, totalBind=0, totalFocus=0, hasUnk=false;
+  const breakdown=[];
+
+  for(const m of recipe.materials){
+    const subR = getRecipe(m.name);
+    const subM = getMat(m.name);
+
+    if(subR){
+      // ── 中間素材 ──────────────────────────────────────
+      const sub   = calcRecipeCost(subR, new Set(visited));
+      const baseQty = subR.qtyPerCraft||1;
+      // スキル期待値: skill%確率で+1個なので期待値 baseQty*(1+p)
+      const perQty = baseQty * skillMultiplier(subR);
+
+      // 自動計算の単価 (1個あたり・スキル期待値込み)
+      const autoRunoPer  = sub.runo!=null   ? sub.runo/perQty  : null;
+      const autoBindPer  = sub.bindRuno/perQty;
+      const autoFocusPer = (sub.focus + (subR.focus||0)) / perQty; // サブ自身のフォーカスも含む
+      const autoTotalPer = autoRunoPer!=null ? autoRunoPer + autoBindPer : null;
+
+      // 取引所購入モードかどうか（UM フラグ + 価格入力済み）
+      const useMarket = UM[subR.id] && (U[subR.id] !== undefined && U[subR.id] !== null);
+      const mktPrice  = useMarket ? U[subR.id] : 0;
+
+      let src, lineRuno=null, lineBind=0, lineFocus=0;
+
+      if(useMarket){
+        // 取引所購入モード: ルーノで購入、フォーカス消費なし
+        src='market'; lineRuno=mktPrice*m.qty; lineBind=0; lineFocus=0;
+      } else if(autoTotalPer!=null){
+        // 自動計算モード
+        src='auto';
+        lineRuno  = autoRunoPer!=null ? autoRunoPer*m.qty : null;
+        lineBind  = autoBindPer*m.qty;
+        lineFocus = autoFocusPer*m.qty;
+      } else {
+        src='unknown'; hasUnk=true;
+      }
+
+      if(src!=='market' && lineRuno==null) hasUnk=true;
+      else {
+        if(lineRuno!=null) totalRuno += lineRuno;
+        totalBind  += lineBind;
+        totalFocus += lineFocus;
+      }
+
+      breakdown.push({name:m.name, qty:m.qty,
+        runo:lineRuno, bindRuno:lineBind, focusUsed:lineFocus, src, isRecipe:true,
+        autoRunoPer, autoBindPer, autoFocusPer, autoTotalPer,
+        mktPrice, subBreakdown:sub.breakdown, subQtyPerCraft:perQty});
+
+    } else if(subM){
+      // ── 生素材 ────────────────────────────────────────
+      const price = userMatPrice(subM);
+      if(price === null){ hasUnk=true; breakdown.push({name:m.name,qty:m.qty,runo:null,bindRuno:0,focusUsed:0,src:'unknown',npcPrice:subM.npcPrice,tag2:subM.tag2,npcShops:subM.npcShops||[]}); continue; }
+
+      const isNpc = subM.npcPrice!=null;
+      let lineRuno=0, lineBind=0;
+      if(isNpc){ lineBind=price*m.qty; }
+      else      { lineRuno=price*m.qty; }
+      totalRuno += lineRuno; totalBind += lineBind;
+
+      breakdown.push({name:m.name, qty:m.qty,
+        runo:isNpc?0:lineRuno, bindRuno:isNpc?lineBind:0, focusUsed:0,
+        src: isNpc?'npc':'raw', npcPrice:subM.npcPrice, tag2:subM.tag2, npcShops:subM.npcShops||[]});
+
+    } else {
+      hasUnk=true;
+      breakdown.push({name:m.name,qty:m.qty,runo:null,bindRuno:0,focusUsed:0,src:'unknown'});
+    }
+  }
+
+  return {
+    runo:     hasUnk ? null : totalRuno,
+    bindRuno: totalBind,
+    focus:    totalFocus,
+    hasUnk, breakdown
+  };
+}
+
+function calcProfit(recipe){
+  const sell     = sellPrice(recipe);
+  const cost     = calcRecipeCost(recipe);
+  const qty      = recipe.qtyPerCraft||1;
+  const ownFocus = recipe.focus||0;
+  const sellUnk  = (sell === null || sell === undefined || (U[recipe.id] === undefined));
+  const matUnk   = cost.hasUnk;
+
+  if(sellUnk || matUnk){
+    return {profit:null,profitRuno:null,perItem:null,perFocus:null,
+            sell, cost, matUnk, sellUnk, totalFocus:null};
+  }
+
+  // スキル期待値倍率
+  const effQty     = qty * skillMultiplier(recipe);
+  const revenue    = sell * effQty;
+  const profitRuno = revenue - (cost.runo ?? 0);
+  const profit     = revenue - (cost.runo ?? 0) - cost.bindRuno;
+  const totalFocus = ownFocus + cost.focus;
+  const perItem    = profit / effQty;
+  const perFocus   = totalFocus>0 ? profit/totalFocus : null;
+
+  return {profit, profitRuno, perItem, perFocus, sell, cost, matUnk:false, sellUnk:false, totalFocus, effQty};
+}
+
+function sellPrice(recipe){
+  const v = U[recipe.id];
+  return (v !== undefined && v !== null) ? v : null;
+}
+
+/* ===================== PAGE SWITCH ===================== */
+function showPage(name,btn){
+  document.querySelectorAll('.tab-page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='mat')  renderMatPage();
+  if(name==='calc') renderCalcList();
+  if(name==='rank') renderRanking();
+  saveUI();
+}
+
+/* ===================== PAGE: 素材価格入力 ===================== */
+let matFilter = 'ALL';
+let unkMatIds = new Set(); // 未入力素材ID（価格入力タブでハイライト用）
+
+// Sidebar filter values: 'ALL' | '素材ALL' | 'NPC購入可' | '中間素材' | '完成品'
+
+function renderMatPage(){
+  const nav = document.getElementById('mat-nav');
+  nav.innerHTML='';
+
+  const matTotal = D.materials.length;
+  const npcCnt   = D.materials.filter(m=>m.tag2.includes('NPC購入可')).length;
+  const intCnt   = D.recipes.filter(r=>r.tag1==='中間素材').length;
+  const finCnt   = D.recipes.filter(r=>r.tag1==='完成品').length;
+  const allTotal = matTotal + intCnt + finCnt;
+
+  const npcMatCnt  = D.materials.filter(m=>m.tag2.includes('NPC購入可')).length;
+  const noNpcMatCnt= matTotal - npcMatCnt;
+  const intNpcCnt  = D.recipes.filter(r=>r.tag1==='中間素材'&&(r.tag2||[]).includes('NPC購入可')).length;
+  const intNoNpcCnt= intCnt - intNpcCnt;
+
+  const items = [
+    { val:'ALL',         label:'すべて',                 cnt:allTotal },
+    { val:'素材ALL',     label:'素材',                   cnt:noNpcMatCnt },
+    { val:'素材NPC',     label:'素材（NPC購入可）',      cnt:npcMatCnt },
+    { val:'中間素材',    label:'中間素材',                cnt:intNoNpcCnt },
+    { val:'中間NPC',     label:'中間素材（NPC購入可）',  cnt:intNpcCnt },
+    { val:'完成品',      label:'完成品',                 cnt:finCnt },
+  ];
+
+  for(const it of items){
+    const d = document.createElement('div');
+    d.className='snav-item'+(matFilter===it.val?' active':'');
+    d.style.paddingLeft = '12px';
+    d.innerHTML = `${it.label}<span class="snav-cnt">${it.cnt}</span>`;
+    d.onclick=()=>{
+      matFilter=it.val;
+      document.querySelectorAll('.snav-item').forEach(e=>e.classList.remove('active'));
+      d.classList.add('active');
+      renderMatBody();
+    };
+    nav.appendChild(d);
+  }
+  renderMatBody();
+}
+
+function renderMatBody(){
+  const titleMap = {
+    'ALL':      'すべて',
+    '素材ALL':  '素材',
+    '素材NPC':  '素材（NPC購入可）',
+    '中間素材': '中間素材',
+    '中間NPC':  '中間素材（NPC購入可）',
+    '完成品':   '完成品',
+  };
+  document.getElementById('mat-title').textContent = titleMap[matFilter]||matFilter;
+
+  const wrap = document.getElementById('mat-body');
+
+  const showMats    = matFilter==='ALL' || matFilter==='素材ALL';
+  const showNpcMats = matFilter==='素材NPC';
+  const showInt     = matFilter==='ALL' || matFilter==='中間素材';
+  const showIntNpc  = matFilter==='中間NPC';
+  const showFin     = matFilter==='ALL' || matFilter==='完成品';
+
+  // 素材: NPC購入可フィルタ時はNPCのみ、素材ALLはNPC以外のみ、ALLは全件
+  let mats = matFilter==='ALL'  ? D.materials
+           : showMats            ? D.materials.filter(m=>!m.tag2.includes('NPC購入可'))
+           : showNpcMats         ? D.materials.filter(m=>m.tag2.includes('NPC購入可'))
+           : [];
+  // ── 素材テーブル ──
+  let rows='';
+  for(const m of mats){
+    const v = U[m.id] ?? '';
+    const filled = v !== '';
+    const isNpc = m.npcPrice!=null;
+    const tags2html = m.tag2.map(t=>`<span class="tag tag-${t}">${t}</span>`).join('');
+    const shopsHtml = (m.npcShops||[]).length
+      ? `<div style="font-size:10px;color:var(--npc);margin-top:3px">${m.npcShops.join(' · ')}</div>` : '';
+    rows+=`<tr id="mat-row-${m.id}">
+      <td>
+        <div class="mat-name">${m.name}</div>
+        ${tags2html ? `<div class="mat-tags">${tags2html}</div>` : ''}
+        ${shopsHtml}
+      </td>
+      <td class="col-r">
+        <div class="price-wrap">
+          ${isNpc ? `<span class="npc-ref">NPC: ${fmt(m.npcPrice)} バインドルーノ</span>` : ''}
+          <input type="number" min="0"
+            class="price-inp${filled?' filled':''}"
+            placeholder="未入力" value="${v}"
+            oninput="setMatPrice('${m.id}',this)">
+          <span class="unit">ルーノ</span>
+        </div>
+      </td>
+    </tr>`;
+  }
+
+  // ── 中間素材テーブル ──
+  const intRecipes = showInt    ? D.recipes.filter(r=>r.tag1==='中間素材'&&!(r.tag2||[]).includes('NPC購入可'))
+                  : showIntNpc  ? D.recipes.filter(r=>r.tag1==='中間素材'&&(r.tag2||[]).includes('NPC購入可'))
+                  : [];
+  let intRows='';
+  for(const r of intRecipes){
+    const auto = calcRecipeCost(r);
+    const autoCostPer = !auto.hasUnk ? (auto.runo+auto.bindRuno)/(r.qtyPerCraft||1) : null;
+    const autoStr = autoCostPer!=null ? `自動計算: ${fmt(autoCostPer)} ルーノ/個` : '自動計算: 素材未入力';
+    const isMarket = !!UM[r.id];
+    const v = U[r.id] ?? '';
+    const filled = v !== '';
+    intRows+=`<tr id="mat-row-${r.id}">
+      <td>
+        <div class="mat-name">${r.name}</div>
+        <div class="mat-tags">
+          <span class="tag tag-中間素材">中間素材</span>
+          <span class="tag" style="background:var(--g-l);color:var(--g)">${autoStr}</span>
+        </div>
+      </td>
+      <td class="col-r">
+        <div class="price-wrap">
+          <input type="number" min="0"
+            class="price-inp${filled?' filled':''}"
+            placeholder="取引所価格（1個）" value="${v}"
+            oninput="setRecipeMarketPrice('${r.id}',this)">
+          <span class="unit">ルーノ</span>
+        </div>
+        <label class="mkt-toggle" style="margin-top:5px;justify-content:flex-end">
+          <input type="checkbox" ${isMarket?'checked':''} onchange="setIntMode('${r.id}',this.checked)">
+          <span class="mkt-toggle-label">${isMarket?'取引所購入で計算中':'取引所購入で計算する'}</span>
+        </label>
+      </td>
+    </tr>`;
+  }
+
+  // ── 完成品テーブル ──
+  const finRecipes = showFin ? D.recipes.filter(r=>r.tag1==='完成品') : [];
+  let finRows='';
+  for(const r of finRecipes){
+    const v = U[r.id] ?? '';
+    const filled = v !== '';
+    finRows+=`<tr id="mat-row-${r.id}">
+      <td>
+        <div class="mat-name">${r.name}</div>
+        <div class="mat-tags">
+          <span class="tag tag-完成品">完成品</span>
+          <span class="cat-badge cat-${r.category}">${r.category}</span>
+        </div>
+      </td>
+      <td class="col-r">
+        <div class="price-wrap">
+          <input type="number" min="0"
+            class="price-inp${filled?' filled':''}"
+            placeholder="販売価格（1個）" value="${v}"
+            oninput="setRecipeMarketPrice('${r.id}',this)">
+          <span class="unit">ルーノ / 個</span>
+        </div>
+      </td>
+    </tr>`;
+  }
+
+  if(!rows&&!intRows&&!finRows){
+    wrap.innerHTML='<div style="padding:40px;text-align:center;color:var(--t3)">データがありません</div>';
+    return;
+  }
+
+  wrap.innerHTML = `
+    ${rows ? `<div class="mat-tbl-wrap">
+      <table class="mat-tbl">
+        <thead><tr><th>素材名 / タグ</th><th style="text-align:right">価格 (ルーノ/個)</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>` : ''}
+    ${intRows ? `
+    <div style="margin-top:20px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:12px;font-weight:700;color:var(--t2)">中間素材</span>
+      <button class="btn btn-ghost" style="font-size:11px;padding:2px 10px;height:auto" onclick="setAllIntMode(true)">すべて取引所購入</button>
+      <button class="btn btn-ghost" style="font-size:11px;padding:2px 10px;height:auto" onclick="setAllIntMode(false)">すべて自動計算</button>
+    </div>
+    <div class="mat-tbl-wrap">
+      <table class="mat-tbl">
+        <thead><tr><th>中間素材名 / 自動計算コスト</th><th style="text-align:right">取引所購入 / 価格</th></tr></thead>
+        <tbody>${intRows}</tbody>
+      </table>
+    </div>` : ''}
+    ${finRows ? `
+    <div style="margin-top:20px;font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">完成品の販売価格</div>
+    <div class="mat-tbl-wrap">
+      <table class="mat-tbl">
+        <thead><tr><th>完成品名</th><th style="text-align:right">販売価格（ルーノ/個）</th></tr></thead>
+        <tbody>${finRows}</tbody>
+      </table>
+    </div>` : ''}
+  `;
+}
+
+function setMatPrice(id, el){
+  const v = parseFloat(el.value);
+  if(!isNaN(v)&&v>=0){ U[id]=v; el.classList.add('filled'); }
+  else { delete U[id]; el.classList.remove('filled'); }
+  saveUser(); refreshChips(); saveUI();
+}
+
+function setRecipeMarketPrice(id, el){
+  const v = parseFloat(el.value);
+  if(!isNaN(v)&&v>=0){ U[id]=v; el.classList.add('filled'); }
+  else { delete U[id]; el.classList.remove('filled'); }
+  saveUser(); refreshChips(); saveUI();
+}
+
+// 未入力素材のハイライト (価格入力タブに反映)
+function setMatUnkHighlight(unkNames){
+  // ID セットを更新
+  unkMatIds.clear();
+  if(unkNames && unkNames.length){
+    for(const name of unkNames){
+      const mat = D.materials.find(m=>m.name===name);
+      const rec = D.recipes.find(r=>r.name===name);
+      const id  = mat?.id || rec?.id;
+      if(id) unkMatIds.add(id);
+    }
+  }
+  applyUnkHighlight();
+}
+
+function applyUnkHighlight(){
+  document.querySelectorAll('.mat-row-unk').forEach(el=>el.classList.remove('mat-row-unk'));
+  for(const id of unkMatIds){
+    const row = document.getElementById('mat-row-'+id);
+    if(row) row.classList.add('mat-row-unk');
+  }
+}
+
+// 素材価格入力タブの該当行にジャンプ
+function jumpToMat(id){
+  // まずタブを切り替え
+  const matBtn = document.querySelector('.nav-btn[onclick*="mat"]');
+  if(matBtn) showPage('mat', matBtn);
+  // フィルタをALLに戻してから該当行へ
+  matFilter='ALL';
+  renderMatPage();
+  requestAnimationFrame(()=>{
+    const row = document.getElementById('mat-row-'+id);
+    if(row){
+      row.scrollIntoView({behavior:'smooth', block:'center'});
+      row.classList.add('jump-highlight');
+      setTimeout(()=>row.classList.remove('jump-highlight'), 1400);
+      const inp = row.querySelector('input');
+      if(inp) setTimeout(()=>inp.focus(), 400);
+    }
+  });
+}
+
+/* ===================== PAGE: 計算 ===================== */
+let selId=null, catF='ALL', searchQ='';
+
+function renderCalcList(){
+  const bar=document.getElementById('cat-bar');
+  bar.innerHTML='';
+  const cats=['ALL',...new Set(D.recipes.map(r=>r.category))];
+  for(const cat of cats){
+    const b=document.createElement('button');
+    b.className='fbtn'+(catF===cat?' active':'');
+    b.textContent=cat==='ALL'?'すべて':cat;
+    b.onclick=()=>{ catF=cat; document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); renderCalcItems(); saveUI(); };
+    bar.appendChild(b);
+  }
+  renderCalcItems();
+}
+
+function onSearch(q){ searchQ=q; renderCalcItems(); }
+
+function renderCalcItems(){
+  let items=D.recipes;
+  if(catF!=='ALL') items=items.filter(r=>r.category===catF);
+  if(searchQ){ const q=searchQ.toLowerCase(); items=items.filter(r=>r.name.toLowerCase().includes(q)); }
+
+  const list=document.getElementById('item-list');
+  list.innerHTML='';
+  for(const r of items){
+    const p=calcProfit(r);
+    const row=document.createElement('div');
+    row.className='item-row'+(selId===r.id?' sel':'');
+    row.dataset.id=r.id;
+    row.onclick=()=>selectItem(r.id);
+
+    let chip;
+    if(p.profit!=null){
+      chip=`<span class="chip ${p.profit>0?'chip-p':p.profit<0?'chip-l':'chip-z'}">${p.profit>=0?'+':''}${fmt(p.profit)}</span>`;
+    } else {
+      chip=`<span class="chip chip-z">—</span>`;
+    }
+    row.innerHTML=`
+      <div class="dot" style="background:${catColor(r.category)}"></div>
+      <div>
+        <div class="row-name">${r.name}</div>
+        <div class="row-sub"><span class="tag tag-${r.tag1}">${r.tag1}</span></div>
+      </div>
+      ${chip}`;
+    list.appendChild(row);
+  }
+}
+
+function refreshChips(){
+  document.querySelectorAll('.item-row').forEach(row=>{
+    const r=D.recipes.find(x=>x.id===row.dataset.id); if(!r) return;
+    const p=calcProfit(r);
+    const chip=row.querySelector('.chip'); if(!chip) return;
+    if(p.profitRuno!=null){
+      chip.className=`chip ${p.profitRuno>0?'chip-p':p.profitRuno<0?'chip-l':'chip-z'}`;
+      chip.textContent=`${p.profitRuno>=0?'+':''}${fmt(p.profitRuno)}`;
+    } else { chip.className='chip chip-z'; chip.textContent='—'; }
+  });
+  if(selId) renderDetail();
+}
+
+function selectItem(id){
+  selId=id;
+  document.querySelectorAll('.item-row').forEach(r=>r.classList.toggle('sel',r.dataset.id===id));
+  renderDetail();
+  saveUI();
+}
+
+function renderDetail(){
+  const panel=document.getElementById('detail');
+  if(!selId){ panel.innerHTML=`<div class="empty-state"><p>左のリストからアイテムを選択してください</p></div>`; return; }
+  const recipe=D.recipes.find(r=>r.id===selId); if(!recipe) return;
+
+  const p       = calcProfit(recipe);
+  const qty     = recipe.qtyPerCraft||1;
+  const effQty  = p.effQty || qty;
+  const ownFocus= recipe.focus||0;
+  const cost    = p.cost;
+
+  // ── ヘッダーメタ ──
+  const tag2html = recipe.tag2.map(t=>`<span class="tag tag-${t}">${t}</span>`).join('');
+
+  // ── スタットカード値 ──
+  const runoStr      = cost.runo!=null     ? fmt(cost.runo)     : '?';
+  const bindStr      = cost.bindRuno>0     ? fmt(cost.bindRuno) : '—';
+
+  // ── 内訳テーブル行 ──
+  function currTag(runo, bind){
+    const parts=[];
+    if(bind>0) parts.push(`<span class="cur-bind">${fmt(bind)}</span>`);
+    if(runo!=null && runo>=0) parts.push(`<span class="cur-runo">${fmt(runo)}</span>`);
+    if(!parts.length) return '<span style="color:var(--t4)">0</span>';
+    return parts.join(' + ');
+  }
+
+  let bdRows='';
+  for(const b of cost.breakdown){
+    // クリック時のジャンプ先ID取得
+    const jumpId = b.isRecipe
+      ? D.recipes.find(r=>r.name===b.name)?.id
+      : D.materials.find(m=>m.name===b.name)?.id;
+    const clickAttr = jumpId ? `onclick="jumpToMat('${jumpId}')" title="素材価格入力で編集"` : '';
+    const nameClass = jumpId ? 'mat-clickable' : '';
+
+    if(b.isRecipe){
+      let srcBadge='';
+      if(b.src==='auto')      srcBadge=`<span class="src-auto">自動計算</span>`;
+      else if(b.src==='market') srcBadge=`<span class="src-mkt">取引所購入</span>`;
+      else if(b.src==='unknown') srcBadge=`<span class="unk">不明</span>`;
+
+      let cmpNote='';
+      if(b.src==='market'){
+        cmpNote=`<div class="tr-sub" style="padding-left:0;color:var(--t3)">
+          取引所購入: <span class="cur-runo">${fmt(b.mktPrice)}</span>/個 → フォーカス消費なし
+          ${b.autoTotalPer!=null ? `（自動計算コスト: <span class="cur-runo">${fmt(b.autoRunoPer??0)}</span>${b.autoBindPer>0?` + <span class="cur-bind">${fmt(b.autoBindPer)}</span>`:''}/個 ＋ <span class="cur-focus">${fmtQ(b.autoFocusPer)}F</span>）` : ''}
+        </div>`;
+      } else if(b.src==='auto'){
+        cmpNote=`<div class="tr-sub" style="padding-left:0;color:var(--t3)">
+          自動計算: <span class="cur-runo">${fmt(b.autoRunoPer??0)}</span>${b.autoBindPer>0?` + <span class="cur-bind">${fmt(b.autoBindPer)}</span>`:''}/個 ＋ <span class="cur-focus">${fmtQ(b.autoFocusPer)}F</span>
+        </div>`;
+      }
+
+      const focusCell = b.focusUsed>0 ? ` <span class="cur-focus">${fmtQ(b.focusUsed)}</span>` : '';
+
+      bdRows+=`<tr>
+        <td>
+          <div class="tr-main"><span class="${nameClass}" ${clickAttr}>${b.name}</span> <span style="color:var(--t3)">× ${b.qty}</span> <span class="tag tag-中間素材">中間素材</span> ${srcBadge}</div>
+          ${cmpNote}
+        </td>
+        <td>${b.runo!=null||b.bindRuno>0 ? currTag(b.runo??0,b.bindRuno)+focusCell : '<span class="unk">?</span>'}</td>
+      </tr>`;
+    } else {
+      const tagsHtml=(b.tag2||[]).map(t=>`<span class="tag tag-${t}">${t}</span>`).join('');
+      const isNpc = b.src==='npc';
+      const costCell = isNpc
+        ? `<span class="cur-bind">${b.bindRuno!=null?fmt(b.bindRuno):'?'}</span>`
+        : b.runo!=null ? `<span class="cur-runo">${fmt(b.runo)}</span>` : '<span class="unk">価格未入力 — クリックして入力</span>';
+      const shopHtml = (b.npcShops||[]).length
+        ? `<div style="font-size:10px;color:var(--npc);margin-top:2px">${b.npcShops.join(' / ')}</div>` : '';
+
+      bdRows+=`<tr>
+        <td>
+          <div class="tr-main"><span class="${nameClass}" ${clickAttr}>${b.name}</span> <span style="color:var(--t3)">× ${b.qty}</span> ${tagsHtml}</div>
+          ${shopHtml}
+        </td>
+        <td>${costCell}</td>
+      </tr>`;
+    }
+  }
+
+  // ── 利益表示 ──
+  const profitRunoCls = p.profitRuno!=null ? (p.profitRuno>0?'v-profit':p.profitRuno<0?'v-loss':'') : '';
+  const profitRunoDisp = p.profitRuno!=null ? (p.profitRuno>=0?'+':'')+fmt(p.profitRuno)+' ルーノ' : '?';
+  const bindCostDisp   = cost.bindRuno>0 ? '−'+fmt(cost.bindRuno)+' バインドルーノ' : null;
+  const perFocusDisp   = p.perFocus!=null ? (p.perFocus>=0?'+':'')+fmt(p.perFocus)+' / フォーカス' : (p.totalFocus?'?':'—');
+  const perFocusCls    = p.perFocus!=null ? (p.perFocus>0?'v-profit':p.perFocus<0?'v-loss':'') : '';
+
+  // 未入力素材を価格入力タブでハイライト
+  const unkNames = cost.breakdown.filter(b=>b.src==='unknown').map(b=>b.name);
+  setMatUnkHighlight(unkNames);
+
+  panel.innerHTML=`<div style="max-width:720px">
+    <div class="det-header">
+      <div class="det-icon">${catEmoji(recipe.category)}</div>
+      <div>
+        <div class="det-name">${recipe.name}</div>
+        <div class="det-meta">
+          <span class="cat-badge cat-${recipe.category}">${recipe.category}</span>
+          <span class="tag tag-${recipe.tag1}">${recipe.tag1}</span>
+          ${tag2html}
+          <span style="font-size:11px;color:var(--t3)">1クラフト → ${qty}個 / ${ownFocus}フォーカス消費</span>
+          ${recipe.skill ? `<span style="font-size:11px;color:var(--profit);font-weight:700">${recipe.skill}% で2個（スキル）</span>` : ''}
+          ${recipe.skill && masteryMode ? `<span style="font-size:11px;color:var(--t3)">（期待値 ×${(1+recipe.skill/100).toFixed(3)}）</span>` : ''}
+          ${recipe.note?`<span style="font-size:11px;color:var(--t3)">${recipe.note}</span>`:''}
+        </div>
+      </div>
+    </div>
+
+    ${p.matUnk?`<div class="warn-box">価格が未入力の素材があります。内訳の素材名をクリックして入力してください。</div>`:''}
+    ${p.sellUnk?`<div class="warn-box" style="background:#e8f4ff;border-color:#a8d4ff;color:#1a5f9e">販売価格が未入力です。「価格入力」タブの完成品欄で入力してください。</div>`:''}
+
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-lbl">素材コスト <span class="cur-runo">ルーノ</span></div>
+        <div class="stat-val v-warn" style="font-size:17px">${cost.runo!=null?fmt(cost.runo):'?'}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl">素材コスト <span class="cur-bind">バインドルーノ</span></div>
+        <div class="stat-val" style="font-size:17px;color:var(--npc)">${cost.bindRuno>0?fmt(cost.bindRuno):'—'}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl">消費フォーカス合計</div>
+        <div class="stat-val" style="font-size:15px;color:var(--focus)">${p.totalFocus>0?fmtQ(p.totalFocus)+(ownFocus>0?` (自${ownFocus} + 素材${fmtQ(cost.focus)})`:` (素材のみ)`):(ownFocus>0?String(ownFocus):'—')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl">売上 (× ${fmtQ(effQty)}個)</div>
+        <div class="stat-val v-accent" style="font-size:17px">${p.sell!=null?fmt(p.sell*effQty):'?'}</div>
+      </div>
+    </div>
+
+    <div class="stat-row" style="grid-template-columns:1fr 1fr;margin-top:0">
+      <div class="stat-card hi" style="padding:18px 20px">
+        <div class="stat-lbl">利益</div>
+        <div class="stat-val ${profitRunoCls}" style="font-size:22px;margin-bottom:6px">${profitRunoDisp}</div>
+        ${bindCostDisp ? `<div style="font-size:14px;font-weight:700;color:var(--npc)">${bindCostDisp}</div>` : ''}
+      </div>
+      <div class="stat-card" style="padding:18px 20px">
+        <div class="stat-lbl">1フォーカスあたり利益${p.totalFocus?` (÷ ${fmtQ(p.totalFocus)})`:''}</div>
+        <div class="stat-val ${perFocusCls}" style="font-size:20px">${perFocusDisp}</div>
+      </div>
+    </div>
+
+    <div class="sec-title">素材コスト内訳
+      <span style="font-size:10px;font-weight:400;letter-spacing:0;color:var(--t3)">
+        <span class="cur-runo"></span>=ルーノ（取引所）
+        <span class="cur-bind" style="margin-left:6px"></span>=バインドルーノ（NPC）
+        <span class="cur-focus" style="margin-left:6px"></span>=フォーカス
+      </span>
+    </div>
+    <table class="bd-tbl">
+      <thead><tr><th>素材</th><th style="min-width:160px">コスト</th></tr></thead>
+      <tbody>${bdRows}</tbody>
+      <tfoot>
+        <tr style="background:var(--bg)">
+          <td style="font-weight:700;font-size:12px">合計</td>
+          <td style="text-align:right;font-weight:700">
+            ${cost.runo!=null?`<span class="cur-runo">${fmt(cost.runo)}</span> `:''}
+            ${cost.bindRuno>0?`<span class="cur-bind">${fmt(cost.bindRuno)}</span> `:''}
+            ${cost.focus>0?`<span class="cur-focus">${fmtQ(cost.focus)}</span>`:''}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>`;
+}
+
+/* ===================== PAGE: ランキング ===================== */
+function jumpToCalc(recipeId){
+  // 計算タブに切り替えてアイテムを選択
+  const calcBtn = document.querySelector('.nav-btn[onclick*="calc"]');
+  if(calcBtn) showPage('calc', calcBtn);
+  selId = recipeId;
+  requestAnimationFrame(()=>{
+    renderCalcItems();
+    renderDetail();
+    const row = document.querySelector(`.item-row[data-id="${recipeId}"]`);
+    if(row){
+      row.scrollIntoView({behavior:'smooth', block:'center'});
+      row.classList.add('jump-highlight');
+      setTimeout(()=>row.classList.remove('jump-highlight'), 1400);
+    }
+  });
+}
+
+function renderRanking(){
+  const body=document.getElementById('rank-body');
+  const ranked=D.recipes
+    .filter(r=>r.tag1==='完成品' || r.tag1==='中間素材')
+    .map(r=>({r,p:calcProfit(r)}))
+    .filter(x=>x.p.profitRuno!=null)
+    .sort((a,b)=>b.p.profitRuno-a.p.profitRuno);
+
+  if(!ranked.length){
+    body.innerHTML=`<div style="padding:60px;text-align:center;color:var(--t3);background:var(--white);border:1px solid var(--border);border-radius:var(--r)">
+      <p>販売価格と素材価格を「価格入力」タブで入力するとランキングが表示されます</p>
+    </div>`;
+    return;
+  }
+  const medals=['1','2','3'];
+  const masteryNote = masteryMode ? '<span style="font-size:10px;color:var(--profit);margin-left:6px">マスタリー ON（期待値）</span>' : '<span style="font-size:10px;color:var(--t3);margin-left:6px">マスタリー OFF</span>';
+  body.innerHTML=`
+    <div style="font-size:12px;color:var(--t3);margin-bottom:12px">利益ランキング ${masteryNote} — アイテム名クリックで詳細に移動</div>
+    <table class="rank-tbl">
+    <thead><tr>
+      <th>順位</th><th>カテゴリ</th><th>アイテム名</th>
+      <th>利益 <span class="cur-runo">ルーノ</span></th>
+      <th>BRN消費 <span class="cur-bind">バインド</span></th>
+      <th>消費フォーカス</th>
+      <th>1フォーカスあたり</th>
+    </tr></thead>
+    <tbody>${ranked.map(({r,p},i)=>{
+      const col=p.profitRuno>0?'var(--profit)':p.profitRuno<0?'var(--loss)':'var(--t2)';
+      const sign=v=>v>=0?'+':'';
+      const focusStr=p.totalFocus>0?fmtQ(p.totalFocus):'—';
+      const pfStr=p.perFocus!=null?`${sign(p.perFocus)}${fmt(p.perFocus)}`:'—';
+      const pfCol=p.perFocus!=null?(p.perFocus>0?'var(--profit)':p.perFocus<0?'var(--loss)':'var(--t2)'):'var(--t3)';
+      const skillTag=r.skill?`<span style="font-size:9px;color:var(--profit)">${r.skill}%</span>`:'';
+      return `<tr>
+        <td class="rank-no">${medals[i]||(i+1)}</td>
+        <td><span class="cat-badge cat-${r.category}">${r.category}</span></td>
+        <td style="font-weight:600"><span class="rank-name-link" onclick="jumpToCalc('${r.id}')">${r.name}</span> ${skillTag}</td>
+        <td style="color:${col};font-weight:700">${sign(p.profitRuno)}${fmt(p.profitRuno)}</td>
+        <td style="color:var(--npc)">${p.cost.bindRuno>0?'−'+fmt(p.cost.bindRuno):'—'}</td>
+        <td style="color:var(--focus)">${focusStr}</td>
+        <td style="color:${pfCol}">${pfStr}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+/* ===================== NOTIFY ===================== */
+function notif(msg){
+  const el=document.getElementById('notif');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+init();
+</script>
+</body>
+</html>

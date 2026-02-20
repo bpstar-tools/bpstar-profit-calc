@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>【管理者】スタレゾ 金策ツール</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --white:#fff;--bg:#f5f6fa;--bg2:#eef0f7;
+  --border:#e2e5f0;--border2:#d0d4e8;
+  --accent:#3d6ef5;--accent-l:#eef1ff;
+  --g:#0bbf97;--g-l:#e6faf6;
+  --npc:#7c4dff;--npc-l:#f5eeff;
+  --profit:#0aab6a;--profit-l:#e6f8f0;
+  --loss:#e8354a;--loss-l:#fdeef0;
+  --warn:#e08c00;--warn-l:#fff8e6;
+  --focus:#0ea5e9;--focus-l:#e0f5ff;
+  --normal:#64748b;--normal-l:#f1f5f9;
+  --adm:#b5280f;--adm-l:#fdf1ef;
+  --t1:#1a1e2e;--t2:#4a5270;--t3:#8a91b0;--t4:#c2c7db;
+  --mono:'DM Mono',monospace;--sans:'M PLUS 2',sans-serif;
+  --r:10px;--sh:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);--sh-lg:0 8px 24px rgba(0,0,0,.10)
+}
+html{font-size:14px}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100vh;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.app-body{flex:1;overflow:hidden}
+.tab-page{display:none;height:100%}.tab-page.active{display:flex}
+
+/* HEADER */
+.app-header{background:var(--white);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;height:56px;gap:16px;flex-shrink:0;box-shadow:var(--sh);z-index:50}
+.logo{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,var(--adm) 0%,#7a1a0a 100%);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.app-title{font-size:14px;font-weight:800}
+.app-sub{font-size:10px;color:var(--t3);font-weight:500;letter-spacing:.04em}
+.nav{display:flex;align-items:center;gap:2px;margin-left:20px}
+.nav-btn{padding:5px 14px;border-radius:7px;border:none;background:transparent;color:var(--t2);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{background:var(--bg);color:var(--t1)}
+.nav-btn.active{background:var(--adm-l);color:var(--adm)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--t3);background:var(--bg2)}
+.badge.ok{color:var(--profit);background:var(--profit-l);border-color:#a8e6cc}
+.badge.err{color:var(--loss);background:var(--loss-l);border-color:#f4b8be}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;border:1px solid transparent;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-adm{background:var(--adm);color:#fff;border-color:var(--adm)}.btn-adm:hover{background:#8e1a0e}
+.btn-ghost{background:var(--white);color:var(--t2);border-color:var(--border2)}.btn-ghost:hover{background:var(--bg);color:var(--t1);border-color:var(--t3)}
+.btn-danger{background:var(--loss-l);color:var(--loss);border-color:#f4b8be}.btn-danger:hover{background:#fbd5d9}
+.btn-sm{padding:4px 10px;font-size:11px}
+
+/* LOADING / NOTIF */
+.loading{position:fixed;inset:0;background:var(--white);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:12px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--adm);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.notif{position:fixed;bottom:18px;right:18px;background:var(--t1);color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;box-shadow:var(--sh-lg);transform:translateY(60px);opacity:0;transition:all .25s cubic-bezier(.34,1.56,.64,1);z-index:999}
+.notif.show{transform:translateY(0);opacity:1}
+
+/* TAG BADGES */
+.tag{display:inline-flex;align-items:center;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap}
+.tag-完成品{background:var(--accent-l);color:var(--accent)}
+.tag-中間素材{background:var(--warn-l);color:var(--warn)}
+.tag-素材{background:var(--bg2);color:var(--t2)}
+.tag-NPC購入可{background:var(--npc-l);color:var(--npc)}
+.tag-フォーカス採取{background:var(--focus-l);color:var(--focus)}
+.tag-通常採取{background:var(--normal-l);color:var(--normal)}
+.tag-制作物{background:var(--profit-l);color:var(--profit)}
+
+/* CATEGORY BADGES */
+.cat-badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700}
+.cat-料理{background:#fff5e6;color:#d47800}.cat-錬金{background:#e6faf6;color:#0b9e7d}
+.cat-工芸{background:#f5eeff;color:#7c4dff}.cat-木工{background:#f5ede6;color:#8d5e2a}
+.cat-鍛造{background:#eef4f8;color:#4a7fa0}.cat-織物{background:#fff0f5;color:#d44087}
+
+/* FORM */
+.form-ctrl{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s}
+.form-ctrl:focus{border-color:var(--accent);background:var(--white);box-shadow:0 0 0 3px rgba(61,110,245,.1)}
+select.form-ctrl{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a91b0'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:26px}
+.form-lbl{font-size:11px;font-weight:700;color:var(--t2);letter-spacing:.04em;display:block;margin-bottom:4px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+
+/* TAG CHECKBOXES */
+.tag-checks{display:flex;gap:6px;flex-wrap:wrap}
+.tag-check{display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;font-size:12px;font-weight:600;color:var(--t2);background:var(--white);transition:all .12s;user-select:none}
+.tag-check input{display:none}
+.shop-checks{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.shop-check{display:flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;cursor:pointer;user-select:none;background:var(--white);color:var(--t2);transition:all .12s}
+.shop-check:has(input:checked){background:var(--npc-l);border-color:var(--npc);color:var(--npc);font-weight:600}
+.shop-check input{display:none}
+.tag-check.checked-NPC購入可{background:var(--npc-l);color:var(--npc);border-color:rgba(124,77,255,.3)}
+.tag-check.checked-フォーカス採取{background:var(--focus-l);color:var(--focus);border-color:rgba(14,165,233,.3)}
+.tag-check.checked-通常採取{background:var(--normal-l);color:var(--normal);border-color:rgba(100,116,139,.3)}
+.tag-check.checked-制作物{background:var(--profit-l);color:var(--profit);border-color:rgba(10,171,106,.3)}
+
+/* TWO COL LAYOUT */
+.two-col{flex-direction:row;overflow:hidden;background:var(--bg)}
+.left-col{width:420px;flex-shrink:0;overflow-y:auto;padding:20px;border-right:1px solid var(--border)}
+.right-col{flex:1;overflow-y:auto;padding:20px}
+
+/* FORM CARD */
+.form-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden;margin-bottom:14px}
+.form-card-head{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:space-between}
+.form-card-body{padding:16px;display:flex;flex-direction:column;gap:10px}
+.form-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* MAT ROWS in recipe form */
+.mat-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.mat-box-head{padding:7px 12px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--t2)}
+.mat-row{display:flex;flex-direction:column;gap:5px;padding:8px 10px;border-bottom:1px solid var(--border)}
+.mat-row:last-child{border-bottom:none}
+.mat-row-top{display:flex;align-items:center;gap:6px}
+.mat-row-bot{display:flex;align-items:center;gap:6px}
+.mat-row input[type="text"]{flex:1;min-width:0;font-family:var(--sans);font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--white);color:var(--t1);outline:none}
+.mat-row input[type="number"]{width:70px;text-align:center;font-family:var(--sans);font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--white);color:var(--t1);outline:none;flex-shrink:0}
+.mat-row input:focus{border-color:var(--accent)}
+.mat-row-select{font-family:var(--sans);font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--white);color:var(--t2);outline:none;cursor:pointer;flex-shrink:0}
+.mat-row-select:focus{border-color:var(--accent)}
+.mat-row-select.sel-中間素材{background:var(--warn-l);color:var(--warn);border-color:rgba(224,140,0,.3)}
+.btn-rm{background:none;border:none;cursor:pointer;color:var(--t4);font-size:15px;line-height:1;padding:2px;transition:color .12s;flex-shrink:0}
+.btn-rm:hover{color:var(--loss)}
+.mat-empty{padding:12px;text-align:center;font-size:12px;color:var(--t4)}
+
+/* ITEM CARDS in list */
+.item-card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin-bottom:7px;display:flex;align-items:flex-start;gap:10px;box-shadow:var(--sh)}
+.item-card:hover{border-color:var(--border2)}
+.item-card.provisional{border-style:dashed;background:#fffdf5;border-color:var(--warn)}
+.item-card{cursor:grab}
+.item-card.dragging{opacity:.4;cursor:grabbing}
+.item-card.drag-over{border-color:var(--accent);background:var(--accent-l)}
+.drag-handle{color:var(--t4);font-size:14px;cursor:grab;padding:0 4px;flex-shrink:0;user-select:none;align-self:stretch;display:flex;align-items:center}
+.drag-handle:hover{color:var(--t2)}
+.item-info{flex:1;min-width:0}
+.item-name{font-size:13px;font-weight:600;margin-bottom:5px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.item-sub{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-actions{display:flex;gap:5px;flex-shrink:0}
+
+/* EXPORT PAGE */
+#page-export{flex-direction:column;overflow-y:auto;padding:28px;background:var(--bg)}
+.exp-wrap{max-width:680px;margin:0 auto;width:100%}
+.exp-title{font-size:18px;font-weight:800;margin-bottom:5px}
+.exp-sub{font-size:12px;color:var(--t3);margin-bottom:24px}
+.step-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.step{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:var(--white);border:1px solid var(--border);border-radius:8px;box-shadow:var(--sh)}
+.step-n{width:24px;height:24px;border-radius:50%;background:var(--adm);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-t{font-size:12px;color:var(--t2);line-height:1.7}
+.step-t strong{color:var(--t1)}
+code{background:var(--bg2);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:11px}
+.exp-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--sh);margin-bottom:16px}
+.exp-card h3{font-size:14px;font-weight:700;margin-bottom:6px}
+.exp-card p{font-size:12px;color:var(--t3);margin-bottom:14px;line-height:1.6}
+.json-preview{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:14px;font-family:var(--mono);font-size:11px;color:var(--t2);max-height:200px;overflow-y:auto;white-space:pre;margin-bottom:12px}
+.btn-row{display:flex;gap:10px}
+</style>
+</head>
+<body>
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div style="font-size:13px;color:var(--t3)">データを読み込み中...</div>
+</div>
+
+<div id="app" style="opacity:0;transition:opacity .3s">
+  <header class="app-header">
+    
+    <div>
+      <div class="app-title">スタレゾ 金策ツール — 管理者</div>
+      <div class="app-sub">ADMIN | BLUE PROTOCOL: STAR RESONANCE</div>
+    </div>
+    <nav class="nav">
+      <button class="nav-btn active" onclick="showPage('recipes',this)">レシピ編集</button>
+      <button class="nav-btn" onclick="showPage('mats',this)">素材管理</button>
+      <button class="nav-btn" onclick="showPage('export',this)">エクスポート</button>
+    </nav>
+    <div class="header-right">
+      <span class="badge" id="data-badge">読込中</span>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="resetStoredData()" title="保存済みデータを削除してインラインデータに戻す">保存データをリセット</button>
+      <a href="index.html" class="btn btn-ghost btn-sm">ユーザーページ</a>
+    </div>
+  </header>
+
+  <div class="app-body">
+
+    <!-- ===== レシピ編集 ===== -->
+    <div id="page-recipes" class="tab-page active two-col">
+      <div class="left-col">
+        <div class="form-card">
+          <div class="form-card-head">
+            <span id="recipe-form-title">レシピを追加</span>
+          </div>
+          <div class="form-card-body">
+            <div class="form-group">
+              <label class="form-lbl">アイテム名</label>
+              <input type="text" class="form-ctrl" id="r-name" placeholder="例: HPポーション・大">
+            </div>
+            <div class="form-group">
+              <label class="form-lbl">カテゴリ</label>
+              <select class="form-ctrl" id="r-cat">
+                <option>料理</option><option>錬金</option><option>工芸</option>
+                <option>木工</option><option>鍛造</option><option>織物</option>
+              </select>
+            </div>
+            <div class="form-row2">
+              <div class="form-group">
+                <label class="form-lbl">完成数 / 1クラフト</label>
+                <input type="number" class="form-ctrl" id="r-qty" min="1" value="1">
+              </div>
+              <div class="form-group">
+                <label class="form-lbl">必要フォーカス / 1クラフト</label>
+                <input type="number" class="form-ctrl" id="r-focus" min="0" placeholder="0">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-lbl">マスタリーボーナス確率 <span style="font-size:10px;color:var(--t3)">（2個同時完成になる確率（マスタリー） %）</span></label>
+              <div style="display:flex;align-items:center;gap:6px">
+                <input type="number" class="form-ctrl" id="r-skill" min="0" max="100" step="0.1" placeholder="0（スキルなし）">
+                <span style="font-size:12px;color:var(--t3);flex-shrink:0">%</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-lbl">タグ1（種別）</label>
+              <div style="display:flex;gap:8px">
+                <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px">
+                  <input type="radio" name="r-tag1" value="完成品" checked> <span class="tag tag-完成品">完成品</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px">
+                  <input type="radio" name="r-tag1" value="中間素材"> <span class="tag tag-中間素材">中間素材</span>
+                </label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-lbl">タグ2</label>
+              <div class="tag-checks" id="r-tag2-checks">
+                <label class="tag-check" onclick="toggleTag2(this,'r')">
+                  <input type="checkbox" value="NPC購入可">NPC購入可
+                </label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-lbl">備考（任意）</label>
+              <input type="text" class="form-ctrl" id="r-note" placeholder="メモ">
+            </div>
+            <div class="mat-box">
+              <div class="mat-box-head">必要素材</div>
+              <div id="r-mat-rows"><div class="mat-empty">素材を追加してください</div></div>
+            </div>
+            <button class="btn btn-ghost" style="width:100%" onclick="addRMatRow()">＋ 素材を追加</button>
+            <datalist id="mat-suggestions"></datalist>
+            <button class="btn btn-adm" style="width:100%" id="r-save-btn" onclick="saveRecipe()">保存</button>
+            <button class="btn btn-ghost" style="width:100%;display:none" id="r-cancel-btn" onclick="cancelRecipeEdit()">キャンセル</button>
+          </div>
+        </div>
+      </div>
+      <div class="right-col">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px">
+          登録済みレシピ
+          <span style="background:var(--bg2);color:var(--t2);font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px" id="recipe-count">0</span>
+        </div>
+        <div id="recipe-list"></div>
+      </div>
+    </div>
+
+    <!-- ===== 素材管理 ===== -->
+    <div id="page-mats" class="tab-page two-col">
+      <div class="left-col">
+        <div class="form-card">
+          <div class="form-card-head">
+            <span id="mat-form-title">素材を追加</span>
+          </div>
+          <div class="form-card-body">
+            <div class="form-group">
+              <label class="form-lbl">素材名</label>
+              <input type="text" class="form-ctrl" id="m-name" placeholder="例: 薬草">
+            </div>
+            <div class="form-group">
+              <label class="form-lbl">タグ2</label>
+              <div class="tag-checks" id="m-tag2-checks">
+                <label class="tag-check" onclick="toggleTag2(this,'m');updateNpcField()">
+                  <input type="checkbox" value="NPC購入可">NPC購入可
+                </label>
+              </div>
+            </div>
+            <div class="form-group" id="m-npc-group" style="display:none">
+              <label class="form-lbl">NPC固定価格</label>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                <input type="number" class="form-ctrl" id="m-npc-price" min="0" placeholder="バインドルーノ">
+                <span style="font-size:12px;color:var(--t3);flex-shrink:0">バインドルーノ</span>
+              </div>
+              <label class="form-lbl">購入できるNPCショップ <span style="font-size:10px;color:var(--t3)">（複数選択可）</span></label>
+              <div class="shop-checks" id="m-shop-checks"></div>
+            </div>
+            <button class="btn btn-adm" style="width:100%" id="m-save-btn" onclick="saveMat()">保存</button>
+            <button class="btn btn-ghost" style="width:100%;display:none" id="m-cancel-btn" onclick="cancelMatEdit()">キャンセル</button>
+          </div>
+        </div>
+      </div>
+      <div class="right-col">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px">
+          登録済み素材
+          <span style="background:var(--bg2);color:var(--t2);font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px" id="mat-count">0</span>
+        </div>
+        <div id="mat-list"></div>
+      </div>
+    </div>
+
+    <!-- ===== エクスポート ===== -->
+    <div id="page-export" class="tab-page">
+      <div class="exp-wrap">
+        <div class="exp-title">data.json エクスポート</div>
+        <div class="exp-sub">編集内容をGitにコミットしてユーザーに配布します</div>
+        <div class="step-list">
+          <div class="step"><div class="step-n">1</div><div class="step-t"><strong>レシピ編集・素材管理</strong>を完了する</div></div>
+          <div class="step"><div class="step-n">2</div><div class="step-t">「<strong>data.json をダウンロード</strong>」を押す</div></div>
+          <div class="step"><div class="step-n">3</div><div class="step-t">ダウンロードした <code>data.json</code> でプロジェクトの <code>data.json</code> を上書き</div></div>
+          <div class="step"><div class="step-n">4</div><div class="step-t"><code>git add data.json && git commit -m "更新" && git push</code> で反映</div></div>
+        </div>
+        <div class="exp-card">
+          <h3>プレビュー</h3>
+          <p>エクスポートされる data.json の内容（先頭30行）</p>
+          <div class="json-preview" id="json-prev">—</div>
+          <div class="btn-row">
+            <button class="btn btn-adm" onclick="downloadJson()" style="flex:1">⬇️ data.json をダウンロード</button>
+            <button class="btn btn-ghost" onclick="refreshPreview()">更新</button>
+          </div>
+        </div>
+        <div class="exp-card">
+          <h3>既存の data.json を読み込む</h3>
+          <p>別PCで編集した data.json をこのツールで続けて編集できます。</p>
+          <label class="btn btn-ghost" style="cursor:pointer">
+            data.json を読み込む
+            <input type="file" accept=".json" style="display:none" onchange="importJson(event)">
+          </label>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div class="notif" id="notif"></div>
+
+<script>
+/* ===================== STATE ===================== */
+const STORAGE_DATA = 'starreso_data_v3'; // 管理データ共有キー
+let AD = { materials:[], recipes:[] };
+
+function resetStoredData(){
+  if(!confirm('保存済みデータを削除してインラインデータ（初期値）に戻しますか？\nユーザーの入力価格はそのまま保持されます。')) return;
+  localStorage.removeItem(STORAGE_DATA);
+  location.reload();
+}
+
+function saveAD(){
+  try{ localStorage.setItem(STORAGE_DATA, JSON.stringify(AD)); }catch(e){ console.warn('saveAD failed', e); }
+}
+function loadAD(){
+  try{
+    const raw = localStorage.getItem(STORAGE_DATA);
+    if(raw){ const d=JSON.parse(raw); if(d.materials&&d.recipes) return d; }
+  }catch(e){}
+  return null;
+}
+
+/* ===================== INIT ===================== */
+/* ---- インライン埋め込みデータ（ローカルfile://でも動作） ---- */
+const INLINE_DATA = {"materials":[{"id":"m17715500825150.027191333549412833","name":"アズート鉱石","tag1":"素材","tag2":[],"npcPrice":null,"npcShops":[]},{"id":"m17715501701520.10791606628704498","name":"木炭","tag1":"素材","tag2":["NPC購入可"],"npcPrice":660,"npcShops":["木工素材交換"]},{"id":"m17715502591750.8569311540706177","name":"ルナー鉱石","tag1":"素材","tag2":[],"npcPrice":null,"npcShops":[]},{"id":"m17715503046560.4270561090701753","name":"バルー鉱石","tag1":"素材","tag2":[],"npcPrice":null,"npcShops":[]}],"recipes":[{"id":"r1771550082515","name":"輝光石","category":"鍛造","tag1":"完成品","tag2":[],"qtyPerCraft":1,"focus":10,"skill":15,"note":"","materials":[{"name":"アズート鉱石","qty":8,"tag1":"素材"},{"name":"速燃性炭粉","qty":1,"tag1":"中間素材"}]},{"id":"r17715500825150.5436580541549987","name":"速燃性炭粉","category":"木工","tag1":"中間素材","tag2":[],"qtyPerCraft":20,"focus":20,"skill":0,"note":"","materials":[{"name":"木炭","qty":1,"tag1":"素材"}]},{"id":"r1771550259175","name":"精練石","category":"鍛造","tag1":"完成品","tag2":[],"qtyPerCraft":1,"focus":10,"skill":15,"note":"","materials":[{"name":"ルナー鉱石","qty":8,"tag1":"素材"},{"name":"速燃性炭粉","qty":1,"tag1":"中間素材"}]},{"id":"r1771550304656","name":"謎の金属","category":"鍛造","tag1":"完成品","tag2":[],"qtyPerCraft":1,"focus":10,"skill":15,"note":"","materials":[{"name":"バルー鉱石","qty":8,"tag1":"素材"},{"name":"速燃性炭粉","qty":1,"tag1":"中間素材"}]}]};
+
+async function init(){
+  const badge=document.getElementById('data-badge');
+
+  // 1st: localStorage（管理者が保存したデータ）
+  const stored = loadAD();
+  if(stored){
+    AD = stored;
+    badge.textContent='保存済みデータを読込'; badge.className='badge ok';
+  } else {
+    // 2nd: data.json
+    try{
+      const res=await fetch('data.json?'+Date.now());
+      if(!res.ok) throw new Error(res.status);
+      AD=await res.json();
+      if(!AD.materials) AD.materials=[];
+      if(!AD.recipes)   AD.recipes=[];
+      badge.textContent='データ読込済（サーバー）'; badge.className='badge ok';
+    }catch(e){
+      // 3rd: インラインデータ
+      AD=JSON.parse(JSON.stringify(INLINE_DATA));
+      badge.textContent='インラインデータ使用中'; badge.className='badge ok';
+    }
+  }
+
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.opacity='1';
+  renderRecipeList();
+  renderMatList();
+  refreshMatSuggestions();
+}
+
+/* ===================== PAGE SWITCH ===================== */
+function showPage(name,btn){
+  document.querySelectorAll('.tab-page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='export') refreshPreview();
+}
+
+/* ===================== TAG2 TOGGLE ===================== */
+function toggleTag2(label, prefix){
+  const cb=label.querySelector('input');
+  cb.checked=!cb.checked;
+  const val=cb.value;
+  if(cb.checked) label.classList.add('checked-'+val);
+  else label.classList.remove('checked-'+val);
+  // show/hide NPC price field for materials
+  if(prefix==='m') updateNpcField();
+}
+
+function updateNpcField(){
+  const checks=document.querySelectorAll('#m-tag2-checks .tag-check input');
+  const npcChecked=[...checks].find(c=>c.value==='NPC購入可'&&c.checked);
+  document.getElementById('m-npc-group').style.display=npcChecked?'':'none';
+}
+
+function getTag2(prefix){
+  const checks=document.querySelectorAll(`#${prefix}-tag2-checks .tag-check input`);
+  return [...checks].filter(c=>c.checked).map(c=>c.value);
+}
+
+function setTag2(prefix, values){
+  const checks=document.querySelectorAll(`#${prefix}-tag2-checks .tag-check`);
+  checks.forEach(label=>{
+    const cb=label.querySelector('input');
+    const val=cb.value;
+    const checked=values.includes(val);
+    cb.checked=checked;
+    if(checked) label.classList.add('checked-'+val);
+    else label.classList.remove('checked-'+val);
+  });
+  if(prefix==='m') updateNpcField();
+}
+
+/* ===================== RECIPE FORM ===================== */
+let rMatRows=[], rEditId=null;
+
+function addRMatRow(name='', qty=1, tag1='素材'){
+  rMatRows.push({id:Date.now()+Math.random(), name, qty, tag1});
+  renderRMatRows();
+}
+
+function removeRMatRow(id){ rMatRows=rMatRows.filter(r=>r.id!==id); renderRMatRows(); }
+
+function renderRMatRows(){
+  const c=document.getElementById('r-mat-rows');
+  if(!rMatRows.length){ c.innerHTML='<div class="mat-empty">素材を追加してください</div>'; return; }
+  c.innerHTML='';
+  for(const row of rMatRows){
+    const d=document.createElement('div'); d.className='mat-row';
+    const selClass = row.tag1==='中間素材' ? 'mat-row-select sel-中間素材' : 'mat-row-select';
+    d.innerHTML=`
+      <div class="mat-row-top">
+        <select class="${selClass}" onchange="updRRow(${row.id},'tag1',this.value);this.className='mat-row-select'+(this.value==='中間素材'?' sel-中間素材':'')">
+          <option value="素材"     ${row.tag1==='素材'     ?'selected':''}>素材</option>
+          <option value="中間素材" ${row.tag1==='中間素材' ?'selected':''}>中間素材</option>
+        </select>
+        <button class="btn-rm" style="margin-left:auto" onclick="removeRMatRow(${row.id})">&times;</button>
+      </div>
+      <div class="mat-row-bot">
+        <input type="text" placeholder="名前（既存素材は入力で候補表示）" value="${row.name}"
+          list="mat-suggestions"
+          oninput="updRRowName(${row.id},this.value,this.closest('.mat-row'))">
+        <span style="color:var(--t3);font-size:12px;flex-shrink:0">×</span>
+        <input type="number" min="1" value="${row.qty}" oninput="updRRow(${row.id},'qty',this.value)">
+        <span style="font-size:11px;color:var(--t3);flex-shrink:0">個</span>
+      </div>`;
+    c.appendChild(d);
+  }
+}
+
+function updRRow(id, field, value){
+  const r=rMatRows.find(x=>x.id===id);
+  if(r) r[field]=field==='qty'?(parseInt(value)||1):value;
+}
+
+function updRRowName(id, value, rowEl){
+  const r=rMatRows.find(x=>x.id===id);
+  if(!r) return;
+  r.name = value;
+  // 既存素材・レシピと名前が一致したら tag1 を自動設定
+  const matchMat = AD.materials.find(m=>m.name===value);
+  const matchRec = AD.recipes.find(rc=>rc.name===value);
+  if(matchMat){
+    r.tag1='素材';
+  } else if(matchRec){
+    r.tag1='中間素材';
+  }
+  // セレクトの表示も更新
+  const sel = rowEl?.querySelector('.mat-row-select');
+  if(sel && (matchMat||matchRec)){
+    sel.value = r.tag1;
+    sel.className='mat-row-select'+(r.tag1==='中間素材'?' sel-中間素材':'');
+  }
+}
+
+function refreshMatSuggestions(){
+  const dl = document.getElementById('mat-suggestions');
+  if(!dl) return;
+  const names = [
+    ...AD.materials.map(m=>m.name),
+    ...AD.recipes.filter(r=>r.tag1==='中間素材').map(r=>r.name)
+  ];
+  dl.innerHTML = names.map(n=>`<option value="${n}">`).join('');
+}
+
+function saveRecipe(){
+  const name   = document.getElementById('r-name').value.trim();
+  const cat    = document.getElementById('r-cat').value;
+  const qty    = parseInt(document.getElementById('r-qty').value)||1;
+  const focus  = parseFloat(document.getElementById('r-focus').value)||0;
+  const skill  = parseFloat(document.getElementById('r-skill').value)||0;
+  const tag1   = document.querySelector('input[name="r-tag1"]:checked').value;
+  const tag2   = getTag2('r');
+  const note   = document.getElementById('r-note').value.trim();
+
+  if(!name){ notif('アイテム名を入力してください'); return; }
+  if(!rMatRows.length){ notif('素材を追加してください'); return; }
+  if(rMatRows.some(r=>!r.name.trim())){ notif('空の素材名があります'); return; }
+
+  const mats = rMatRows.map(r=>({name:r.name.trim(), qty:r.qty, tag1:r.tag1}));
+
+  if(rEditId){
+    const idx=AD.recipes.findIndex(r=>r.id===rEditId);
+    // 素材が入力済みなら仮登録解除
+    AD.recipes[idx]={id:rEditId, name, category:cat, tag1, tag2, qtyPerCraft:qty, focus, skill, note, materials:mats};
+    notif(`"${name}" を更新しました`);
+  } else {
+    const dup=AD.recipes.find(r=>r.name===name);
+    if(dup){ if(!confirm(`"${name}" は既に存在します。上書きしますか？`)) return; Object.assign(dup,{category:cat,tag1,tag2,qtyPerCraft:qty,focus,skill,note,materials:mats}); }
+    else AD.recipes.push({id:'r'+Date.now(), name, category:cat, tag1, tag2, qtyPerCraft:qty, focus, skill, note, materials:mats});
+    notif(`"${name}" を追加しました`);
+  }
+
+  // 素材タグの行を素材管理に自動登録
+  autoRegisterMaterials(mats);
+
+  saveAD(); cancelRecipeEdit(); renderRecipeList(); renderMatList();
+}
+
+function autoRegisterMaterials(mats){
+  let addedMat=0, addedRecipe=0;
+  for(const m of mats){
+    if(m.tag1==='素材'){
+      const exists=AD.materials.find(x=>x.name===m.name);
+      if(!exists){
+        AD.materials.push({id:'m'+Date.now()+Math.random(), name:m.name, tag1:'素材', tag2:[], npcPrice:null});
+        addedMat++;
+      }
+    } else if(m.tag1==='中間素材'){
+      const exists=AD.recipes.find(x=>x.name===m.name);
+      if(!exists){
+        AD.recipes.push({
+          id:'r'+Date.now()+Math.random(), name:m.name,
+          category:'', tag1:'中間素材', tag2:[], qtyPerCraft:1, focus:0, note:'',
+          materials:[], provisional:true  // 仮登録フラグ
+        });
+        addedRecipe++;
+      }
+    }
+  }
+  const msgs=[];
+  if(addedMat>0)    msgs.push(`素材 ${addedMat}件`);
+  if(addedRecipe>0) msgs.push(`中間素材（仮登録）${addedRecipe}件`);
+  if(msgs.length)   notif(`自動登録: ${msgs.join(' / ')}`);
+}
+
+function startEditRecipe(id){
+  const r=AD.recipes.find(x=>x.id===id); if(!r) return;
+  rEditId=id;
+  document.getElementById('r-name').value=r.name;
+  document.getElementById('r-cat').value=r.category;
+  refreshMatSuggestions();
+  document.getElementById('r-qty').value=r.qtyPerCraft||1;
+  document.getElementById('r-focus').value=r.focus||0;
+  document.getElementById('r-skill').value=r.skill||0;
+  document.querySelector(`input[name="r-tag1"][value="${r.tag1}"]`).checked=true;
+  setTag2('r',r.tag2||[]);
+  document.getElementById('r-note').value=r.note||'';
+  rMatRows=r.materials.map(m=>({id:Date.now()+Math.random(), name:m.name, qty:m.qty, tag1:m.tag1||'素材'}));
+  renderRMatRows();
+  document.getElementById('recipe-form-title').textContent=` "${r.name}" を編集中`;
+  document.getElementById('r-cancel-btn').style.display='';
+  document.getElementById('r-save-btn').textContent='更新';
+  document.querySelector('.left-col').scrollTop=0;
+}
+
+function cancelRecipeEdit(){
+  rEditId=null;
+  document.getElementById('r-name').value='';
+  document.getElementById('r-cat').value='料理';
+  document.getElementById('r-qty').value='1';
+  document.getElementById('r-focus').value='';
+  document.getElementById('r-skill').value='';
+  document.querySelector('input[name="r-tag1"][value="完成品"]').checked=true;
+  setTag2('r',[]);
+  document.getElementById('r-note').value='';
+  rMatRows=[]; renderRMatRows();
+  document.getElementById('recipe-form-title').textContent='レシピを追加';
+  document.getElementById('r-cancel-btn').style.display='none';
+  document.getElementById('r-save-btn').textContent='保存';
+}
+
+function deleteRecipe(id){
+  const r=AD.recipes.find(x=>x.id===id);
+  if(!r||!confirm(`"${r.name}" を削除しますか？`)) return;
+  AD.recipes=AD.recipes.filter(x=>x.id!==id);
+  renderRecipeList(); notif(` "${r.name}" を削除しました`);
+}
+
+function renderRecipeList(){
+  document.getElementById('recipe-count').textContent=AD.recipes.length;
+  const list=document.getElementById('recipe-list'); list.innerHTML='';
+  for(const r of AD.recipes){
+    const tag2html=(r.tag2||[]).map(t=>`<span class="tag tag-${t}">${t}</span>`).join('');
+    const provBadge=r.provisional
+      ? `<span style="font-size:10px;font-weight:700;background:var(--warn);color:#fff;padding:1px 6px;border-radius:3px">仮登録</span>`
+      : '';
+    const d=document.createElement('div');
+    d.className='item-card'+(r.provisional?' provisional':'');
+    d.draggable=true;
+    d.dataset.id=r.id;
+    d.innerHTML=`
+      <div class="drag-handle" title="ドラッグで並び替え">⠿</div>
+      <div class="item-info">
+        <div class="item-name">
+          ${r.category?`<span class="cat-badge cat-${r.category}">${r.category}</span>`:''}
+          <span class="tag tag-${r.tag1}">${r.tag1}</span>
+          ${tag2html}
+          ${provBadge}
+          <strong>${r.name}</strong>
+          ${r.qtyPerCraft?`<span style="font-size:11px;color:var(--t3);font-weight:400">×${r.qtyPerCraft}</span>`:''}
+          ${r.focus?`<span style="font-size:11px;color:var(--focus);font-weight:400">${r.focus}F</span>`:''}
+          ${r.skill?`<span style="font-size:11px;color:var(--profit);font-weight:400">マスタリー ${r.skill}%</span>`:''}        </div>
+        <div class="item-sub">
+          ${r.provisional
+            ? '<span style="color:var(--warn)">素材・カテゴリ未設定 — 編集して情報を追加してください</span>'
+            : r.materials.map(m=>`[${m.tag1||'素材'}]${m.name}×${m.qty}`).join(' / ')
+          }
+        </div>
+      </div>
+      <div class="item-actions">
+        <button class="btn ${r.provisional?'btn-adm':'btn-ghost'} btn-sm" onclick="startEditRecipe('${r.id}')">${r.provisional?'情報を入力':'編集'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRecipe('${r.id}')">削除</button>
+      </div>`;
+    setupDrag(d, 'recipe');
+    list.appendChild(d);
+  }
+}
+
+/* ===================== MATERIAL FORM ===================== */
+let mEditId=null;
+
+// Hide NPC field initially
+document.addEventListener('DOMContentLoaded',()=>{
+  // ショップチェックボックスをJSで生成（HTMLテンプレートでは${}が展開されないため）
+  const SHOPS=['植生学素材交換','鉱物学素材交換','結晶学素材交換','料理素材交換','錬金素材交換',
+               '工芸素材交換','木工素材交換','鍛造素材交換','織物素材交換','肉屋','魚屋','結晶片ショップ'];
+  document.getElementById('m-shop-checks').innerHTML =
+    SHOPS.map(s=>`<label class="shop-check"><input type="checkbox" value="${s}" style="display:none"> ${s}</label>`).join('');
+  updateNpcField();
+});
+
+function saveMat(){
+  const name=document.getElementById('m-name').value.trim();
+  const tag2=getTag2('m');
+  const npcVal=document.getElementById('m-npc-price').value;
+  const npcPrice=tag2.includes('NPC購入可')&&npcVal!==''?parseFloat(npcVal):null;
+  const npcShops = tag2.includes('NPC購入可')
+    ? [...document.querySelectorAll('#m-shop-checks input:checked')].map(i=>i.value)
+    : [];
+
+  if(!name){ notif('素材名を入力してください'); return; }
+
+  const obj = {tag1:'素材', tag2, npcPrice:npcPrice??null, npcShops};
+
+  if(mEditId){
+    const idx=AD.materials.findIndex(m=>m.id===mEditId);
+    AD.materials[idx]={id:mEditId, name, ...obj};
+    notif(`"${name}" を更新しました`);
+  } else {
+    const dup=AD.materials.find(m=>m.name===name);
+    if(dup){ if(!confirm(`"${name}" は既に存在します。上書きしますか？`)) return; Object.assign(dup,{...obj}); }
+    else AD.materials.push({id:'m'+Date.now(), name, ...obj});
+    notif(`"${name}" を追加しました`);
+  }
+  saveAD(); cancelMatEdit(); renderMatList();
+}
+
+function startEditMat(id){
+  const m=AD.materials.find(x=>x.id===id); if(!m) return;
+  mEditId=id;
+  document.getElementById('m-name').value=m.name;
+  setTag2('m',m.tag2||[]);
+  document.getElementById('m-npc-price').value=m.npcPrice??'';
+  // ショップ復元
+  document.querySelectorAll('#m-shop-checks input').forEach(cb=>{
+    cb.checked=(m.npcShops||[]).includes(cb.value);
+  });
+  updateNpcField();
+  document.getElementById('mat-form-title').textContent=` "${m.name}" を編集中`;
+  document.getElementById('m-cancel-btn').style.display='';
+  document.getElementById('m-save-btn').textContent='更新';
+  document.querySelectorAll('.left-col')[1]?.scrollTo(0,0);
+}
+
+function cancelMatEdit(){
+  mEditId=null;
+  document.getElementById('m-name').value='';
+  setTag2('m',[]);
+  document.getElementById('m-npc-price').value='';
+  document.querySelectorAll('#m-shop-checks input').forEach(cb=>cb.checked=false);
+  updateNpcField();
+  document.getElementById('mat-form-title').textContent='素材を追加';
+  document.getElementById('m-cancel-btn').style.display='none';
+  document.getElementById('m-save-btn').textContent='保存';
+}
+
+function deleteMat(id){
+  const m=AD.materials.find(x=>x.id===id);
+  if(!m||!confirm(`"${m.name}" を削除しますか？`)) return;
+  AD.materials=AD.materials.filter(x=>x.id!==id);
+  renderMatList(); notif(` "${m.name}" を削除しました`);
+}
+
+function renderMatList(){
+  document.getElementById('mat-count').textContent=AD.materials.length;
+  const list=document.getElementById('mat-list'); list.innerHTML='';
+  for(const m of AD.materials){
+    const tag2html=m.tag2.map(t=>`<span class="tag tag-${t}">${t}</span>`).join('');
+    const npcStr=m.npcPrice!=null?`<span style="font-size:11px;color:var(--npc)">NPC: ${m.npcPrice.toLocaleString()} バインドルーノ</span>`:'';
+    const shopsHtml=(m.npcShops||[]).length
+      ? `<div style="font-size:10px;color:var(--npc);margin-top:3px">${m.npcShops.join(' / ')}</div>` : '';
+    const d=document.createElement('div'); d.className='item-card';
+    d.draggable=true;
+    d.dataset.id=m.id;
+    d.innerHTML=`
+      <div class="drag-handle" title="ドラッグで並び替え">⠿</div>
+      <div class="item-info">
+        <div class="item-name">${tag2html} <strong>${m.name}</strong> ${npcStr}</div>
+        ${shopsHtml}
+      </div>
+      <div class="item-actions">
+        <button class="btn btn-ghost btn-sm" onclick="startEditMat('${m.id}')">編集</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMat('${m.id}')">削除</button>
+      </div>`;
+    setupDrag(d, 'mat');
+    list.appendChild(d);
+  }
+}
+
+/* ===================== DRAG & DROP ===================== */
+let dragSrc = null;
+
+function setupDrag(el, type){
+  el.addEventListener('dragstart', e=>{
+    dragSrc = el;
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', el.dataset.id);
+  });
+  el.addEventListener('dragend', ()=>{
+    el.classList.remove('dragging');
+    document.querySelectorAll('.drag-over').forEach(x=>x.classList.remove('drag-over'));
+  });
+  el.addEventListener('dragover', e=>{
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if(el !== dragSrc) el.classList.add('drag-over');
+  });
+  el.addEventListener('dragleave', ()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop', e=>{
+    e.preventDefault();
+    el.classList.remove('drag-over');
+    if(!dragSrc || dragSrc===el) return;
+    const list = type==='recipe' ? AD.recipes : AD.materials;
+    const fromId = dragSrc.dataset.id;
+    const toId   = el.dataset.id;
+    const fi = list.findIndex(x=>x.id===fromId);
+    const ti = list.findIndex(x=>x.id===toId);
+    if(fi<0||ti<0) return;
+    const [item] = list.splice(fi, 1);
+    list.splice(ti, 0, item);
+    saveAD();
+    if(type==='recipe') renderRecipeList();
+    else renderMatList();
+  });
+}
+
+/* ===================== EXPORT ===================== */
+function buildJson(){
+  return JSON.stringify({materials:AD.materials,recipes:AD.recipes},null,2);
+}
+function refreshPreview(){
+  const lines=buildJson().split('\n');
+  document.getElementById('json-prev').textContent=lines.slice(0,30).join('\n')+(lines.length>30?'\n...':'');
+}
+function downloadJson(){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([buildJson()],{type:'application/json'}));
+  a.download='data.json'; a.click(); URL.revokeObjectURL(a.href);
+  notif('data.json をダウンロードしました');
+}
+function importJson(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(d.materials&&d.recipes){
+        AD={materials:d.materials,recipes:d.recipes};
+        renderRecipeList(); renderMatList();
+        saveAD();
+        notif('data.json を読み込みました');
+      } else notif('無効なファイル形式です');
+    }catch{ notif('読み込みに失敗しました'); }
+  };
+  reader.readAsText(file); e.target.value='';
+}
+
+/* ===================== NOTIFY ===================== */
+function notif(msg){
+  const el=document.getElementById('notif');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+/* ===================== START ===================== */
+init();
+renderRMatRows();
+updateNpcField();
+</script>
+</body>
+</html>
