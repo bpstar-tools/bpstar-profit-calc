@@ -1,0 +1,21 @@
+{
+    "hotkey": "PrintScreen",
+    "save_directory": "~/Pictures/GameScreenshots",
+    "jpg_quality": 95,
+    "notification": true,
+    "sound": false,
+    "timestamp_format": "%Y%m%d_%H%M%S",
+    "game_detection": {
+        "use_process_name": true,
+        "use_window_title": true,
+        "title_cleanup_patterns": [
+            " - ",
+            " \\| ",
+            " \\(.*\\)$"
+        ],
+        "process_name_aliases": {
+            "eldenring.exe": "Elden Ring",
+            "GenshinImpact.exe": "Genshin Impact"
+        }
+    }
+}
